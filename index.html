@@ -36,6 +36,31 @@
     --radius-xl: 20px;
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+    --timeline-line: #e2e8f0;
+  }
+
+  [data-theme="dark"] {
+    --bg: #090d13;
+    --surface: #0d1117;
+    --surface-2: #161b22;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.16);
+    --text-primary: #c9d1d9;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --blue: #38bdf8;
+    --blue-light: rgba(56,189,248,0.1);
+    --green: #34d399;
+    --green-light: rgba(52,211,153,0.1);
+    --amber: #fbbf24;
+    --amber-light: rgba(251,191,36,0.1);
+    --red: #f87171;
+    --red-light: rgba(248,113,113,0.1);
+    --purple: #a78bfa;
+    --purple-light: rgba(167,139,250,0.1);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --timeline-line: #21262d;
   }
  
   body {
@@ -44,6 +69,7 @@
     color: var(--text-primary);
     min-height: 100vh;
     line-height: 1.5;
+    transition: background 0.2s, color 0.2s;
   }
  
   /* ── Header ── */
@@ -59,6 +85,7 @@
     top: 0;
     z-index: 10;
   }
+  .header-left { display: flex; align-items: center; gap: 20px; }
   .header-logo {
     display: flex;
     align-items: center;
@@ -71,18 +98,36 @@
   .logo-icon {
     width: 30px;
     height: 30px;
-    background: var(--blue);
+    background: #2563eb;
     border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
   }
   .logo-icon svg { width: 16px; height: 16px; }
+  .header-right { display: flex; align-items: center; gap: 24px; }
   .header-date {
     font-size: 13px;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-family: 'DM Mono', monospace;
   }
+  
+  /* Theme Switcher Button */
+  .theme-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+  .theme-btn:hover { border-color: var(--border-strong); color: var(--text-primary); }
  
   /* ── Layout ── */
   .container {
@@ -99,7 +144,7 @@
   }
   .page-subtitle {
     font-size: 14px;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     margin-bottom: 2rem;
   }
  
@@ -108,14 +153,14 @@
     font-weight: 500;
     letter-spacing: 0.07em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     margin-bottom: 12px;
     margin-top: 1rem;
   }
  
   /* ── Net worth bar ── */
   .networth-bar {
-    background: var(--text-primary);
+    background: #0d1117;
     border-radius: var(--radius-lg);
     padding: 24px 28px;
     display: grid;
@@ -124,13 +169,15 @@
     margin-bottom: 2rem;
     box-shadow: var(--shadow-md);
     color: #fff;
+    border: 1px solid rgba(255,255,255,0.05);
   }
+  [data-theme="dark"] .networth-bar { background: #161b22; }
   .nw-item { display: flex; flex-direction: column; }
-  .nw-label { font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+  .nw-label { font-size: 12px; color: #8b949e; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
   .nw-value { font-size: 30px; font-weight: 300; font-family: 'DM Mono', monospace; margin-top: 4px; }
-  .nw-value.green { color: #10b981; }
+  .nw-value.green { color: #34d399; }
   .nw-value.red { color: #f87171; }
-  .nw-subtext { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .nw-subtext { font-size: 12px; color: #484f58; margin-top: 2px; }
  
   /* ── Asset/Liability cards ── */
   .cards-grid {
@@ -145,9 +192,9 @@
     border-radius: var(--radius-lg);
     padding: 20px;
     box-shadow: var(--shadow-sm);
-    transition: box-shadow 0.2s, border-color 0.2s;
+    transition: box-shadow 0.2s, border-color 0.2s, background 0.2s;
   }
-  .asset-card:hover { box-shadow: var(--shadow-md); }
+  .asset-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); }
   .asset-card.liability { border-left: 4px solid var(--red); }
   .asset-card.asset { border-left: 4px solid var(--green); }
   
@@ -181,7 +228,7 @@
     padding: 0;
   }
   .card-input:focus { border-bottom-color: var(--blue); }
-  .card-sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+  .card-sub { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
 
   /* ── Full Width & Panels Layout ── */
   .full-panel {
@@ -191,6 +238,7 @@
     padding: 24px;
     box-shadow: var(--shadow-sm);
     margin-bottom: 1.5rem;
+    transition: background 0.2s, border-color 0.2s;
   }
 
   .income-grid {
@@ -249,6 +297,70 @@
   .cf-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); font-weight: 500; }
   .cf-val { font-size: 20px; font-weight: 500; font-family: 'DM Mono', monospace; margin-top: 1px; }
   
+  /* ── Milestone Timeline Module ── */
+  .timeline-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    position: relative;
+    margin-top: 16px;
+    padding-top: 8px;
+  }
+  .timeline-container::before {
+    content: '';
+    position: absolute;
+    top: 28px;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: var(--timeline-line);
+    z-index: 1;
+  }
+  @media (max-width: 768px) {
+    .timeline-container { grid-template-columns: 1fr; gap: 24px; }
+    .timeline-container::before { display: none; }
+  }
+  .timeline-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+  }
+  .timeline-dot {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 3px solid var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s;
+  }
+  .timeline-node.active .timeline-dot {
+    background: var(--surface);
+  }
+  .timeline-node.active.phase-debt .timeline-dot { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 0 4px var(--amber-light); }
+  .timeline-node.active.phase-runway .timeline-dot { border-color: var(--blue); color: var(--blue); box-shadow: 0 0 0 4px var(--blue-light); }
+  .timeline-node.active.phase-coast .timeline-dot { border-color: var(--purple); color: var(--purple); box-shadow: 0 0 0 4px var(--purple-light); }
+  .timeline-node.active.phase-fi .timeline-dot { border-color: var(--green); color: var(--green); box-shadow: 0 0 0 4px var(--green-light); }
+  
+  .timeline-node.complete .timeline-dot {
+    background: var(--green);
+    border-color: var(--green);
+    color: #fff !important;
+    box-shadow: none;
+  }
+
+  .timeline-meta { margin-top: 10px; }
+  .timeline-title { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .timeline-status { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; color: var(--text-secondary); }
+  .timeline-date { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; margin-top: 2px; color: var(--text-secondary); }
+
   /* ── Parallel Diagnostics Grid ── */
   .diagnostics-split {
     display: grid;
@@ -264,6 +376,7 @@
     border-radius: var(--radius-lg);
     padding: 24px;
     box-shadow: var(--shadow-sm);
+    transition: background 0.2s, border-color 0.2s;
   }
   .diag-panel.debt-theme { border-left: 4px solid var(--amber); }
   .diag-panel.fi-theme { border-left: 4px solid var(--purple); }
@@ -337,6 +450,7 @@
     border-radius: var(--radius-lg);
     padding: 24px;
     box-shadow: var(--shadow-sm);
+    transition: background 0.2s, border-color 0.2s;
   }
  
   /* ── Allocation/Metrics ── */
@@ -350,7 +464,7 @@
   .metric-row:last-child { border-bottom: none; }
   .metric-meta { display: flex; flex-direction: column; }
   .metric-title { font-size: 14px; font-weight: 500; color: var(--text-primary); }
-  .metric-desc { font-size: 11px; color: var(--text-muted); }
+  .metric-desc { font-size: 11px; color: var(--text-secondary); }
   .metric-value { font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500; }
   .metric-value.good { color: var(--green); }
   .metric-value.warning { color: var(--amber); }
@@ -382,31 +496,39 @@
   }
   input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
-    background: var(--blue); border: 2px solid #fff; box-shadow: 0 0 0 1px var(--blue);
+    background: #2563eb; border: 2px solid #fff; box-shadow: 0 0 0 1px #2563eb;
   }
  
   .fv-result {
     background: var(--surface-2); border-radius: var(--radius-md);
     padding: 16px; text-align: center; margin: 20px 0;
   }
-  .fv-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 4px; }
+  .fv-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-secondary); margin-bottom: 4px; }
   .fv-value { font-size: 32px; font-weight: 400; color: var(--blue); font-family: 'DM Mono', monospace; }
   .fv-gain { font-size: 12px; color: var(--green); margin-top: 2px; }
   .growth-wrap { position: relative; height: 150px; }
  
-  .footer-note { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+  .footer-note { font-size: 12px; color: var(--text-secondary); text-align: center; margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
 </style>
 </head>
 <body>
  
 <header class="header">
-  <a class="header-logo" href="#">
-    <div class="logo-icon">
-      <svg fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-    </div>
-    Finfolio
-  </a>
-  <span class="header-date" id="header-date"></span>
+  <div class="header-left">
+    <a class="header-logo" href="#">
+      <div class="logo-icon">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      Finfolio
+    </a>
+  </div>
+  <div class="header-right">
+    <span class="header-date" id="header-date"></span>
+    <button class="theme-btn" id="theme-toggle" aria-label="Toggle Theme">
+      <span id="theme-icon">🌙</span>
+      <span id="theme-text">Dark Mode</span>
+    </button>
+  </div>
 </header>
  
 <div class="container">
@@ -414,6 +536,7 @@
   <h1 class="page-title">Financial Command Center</h1>
   <p class="page-subtitle">Track your true net worth, debt burn-down, and emergency readiness in real time.</p>
  
+  <!-- True Net Worth Status Bar -->
   <div class="networth-bar">
     <div class="nw-item">
       <div class="nw-label">True Net Worth</div>
@@ -432,6 +555,7 @@
     </div>
   </div>
  
+  <!-- Household Balance Sheet Asset Cards -->
   <p class="section-label">Household Balance Sheet — Click values to edit (Age 30 National Medians)</p>
   <div class="cards-grid" id="cards">
  
@@ -509,6 +633,7 @@
  
   </div>
 
+  <!-- Smart Cash Flow Optimization Section -->
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
     <div class="income-grid">
@@ -549,9 +674,55 @@
       </div>
     </div>
   </div>
+
+  <!-- Milestone Waterfall Tracker Timeline -->
+  <div class="full-panel">
+    <p class="section-label" style="margin-top: 0;">Milestone Waterfall Tracker</p>
+    <div class="timeline-container">
+      
+      <div class="timeline-node phase-debt" id="node-debt">
+        <div class="timeline-dot">🔥</div>
+        <div class="timeline-meta">
+          <div class="timeline-title">Debt Free</div>
+          <div class="timeline-status" id="status-debt">Active</div>
+          <div class="timeline-date" id="date-debt">—</div>
+        </div>
+      </div>
+
+      <div class="timeline-node phase-runway" id="node-runway">
+        <div class="timeline-dot">🛡️</div>
+        <div class="timeline-meta">
+          <div class="timeline-title">6-Mo Runway</div>
+          <div class="timeline-status" id="status-runway">Locked</div>
+          <div class="timeline-date" id="date-runway">—</div>
+        </div>
+      </div>
+
+      <div class="timeline-node phase-coast" id="node-coast">
+        <div class="timeline-dot">⛵</div>
+        <div class="timeline-meta">
+          <div class="timeline-title">Coast FI</div>
+          <div class="timeline-status" id="status-coast">Locked</div>
+          <div class="timeline-date" id="date-coast">Age 45</div>
+        </div>
+      </div>
+
+      <div class="timeline-node phase-fi" id="node-fi">
+        <div class="timeline-dot">🚀</div>
+        <div class="timeline-meta">
+          <div class="timeline-title">Full FI</div>
+          <div class="timeline-status" id="status-fi">Locked</div>
+          <div class="timeline-date" id="date-fi">—</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
   
+  <!-- Diagnostics Section Split: Debt vs Financial Independence -->
   <div class="diagnostics-split">
     
+    <!-- Active Debt Burn-Down Diagnostics Engine -->
     <div class="diag-panel debt-theme" id="debt-burn-panel">
       <div class="diag-header-row">
         <span class="diag-headline">🔥 High-Priority Debt Burn-Down</span>
@@ -577,10 +748,11 @@
       </div>
     </div>
 
+    <!-- Financial Independence & Coast Target Tracker -->
     <div class="diag-panel fi-theme">
       <div class="diag-header-row">
         <span class="diag-headline">🚀 Financial Independence Checkpoint</span>
-        <span class="cf-label" style="color: var(--text-muted); font-size: 10px;">Waterfall Forecast Target</span>
+        <span class="cf-label" style="color: var(--text-secondary); font-size: 10px;">Waterfall Forecast Target</span>
       </div>
       <div class="diag-metrics-grid">
         <div class="diag-metric-box">
@@ -602,6 +774,7 @@
  
   <div class="two-col">
  
+    <!-- Left Hand: Health & Allocation Diagnostics -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Financial Health Diagnostics</p>
        
@@ -650,6 +823,7 @@
       </div>
     </div>
  
+    <!-- Right Hand: Yield Estimations -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Wealth Compounding Engine</p>
  
@@ -703,6 +877,43 @@
   // Set Date
   document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US', { weekday:'short', year:'numeric', month:'short', day:'numeric' });
  
+  // ── Dark Theme Management Engine ──
+  const themeToggle = document.getElementById('theme-toggle');
+  const themeIcon = document.getElementById('theme-icon');
+  const themeText = document.getElementById('theme-text');
+
+  function updateChartTheme(mode) {
+    const isDark = mode === 'dark';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)';
+    const labelColor = isDark ? '#8b949e' : '#9aa3b5';
+
+    if (growthChart) {
+      growthChart.options.scales.x.ticks.color = labelColor;
+      growthChart.options.scales.y.ticks.color = labelColor;
+      growthChart.options.scales.y.grid.color = gridColor;
+      growthChart.update('none');
+    }
+    if (assetDonut) {
+      assetDonut.options.plugins.legend.labels.color = isDark ? '#c9d1d9' : '#0d1117';
+      assetDonut.update('none');
+    }
+  }
+
+  themeToggle.addEventListener('click', () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    let newTheme = 'light';
+    if (currentTheme !== 'dark') {
+      newTheme = 'dark';
+      themeIcon.textContent = '☀️';
+      themeText.textContent = 'Light Mode';
+    } else {
+      themeIcon.textContent = '🌙';
+      themeText.textContent = 'Dark Mode';
+    }
+    document.documentElement.setAttribute('data-theme', newTheme);
+    updateChartTheme(newTheme);
+  });
+
   // Math Parsers
   function parseVal(str) { return parseFloat(str.replace(/[^0-9.]/g, '')) || 0; }
   function fmt(n) {
@@ -719,7 +930,7 @@
     return vals;
   }
 
-  // Progressive Tax Calculation Engine
+  // Federal Tax Calculator Engine
   function calculateFederalTax(grossIncome, filingStatus, adjustments) {
     const taxableIncome = Math.max(0, grossIncome - adjustments);
     
@@ -814,18 +1025,13 @@
     const totalLiabilities = v.consumerDebt + v.mortgage;
     const trueNetWorth = totalAssets - totalLiabilities;
 
-    const nwDisplay = document.getElementById('networth-display');
-    nwDisplay.textContent = fmt(trueNetWorth);
-    if (trueNetWorth < 0) {
-      nwDisplay.className = "nw-value red";
-    } else {
-      nwDisplay.className = "nw-value green";
-    }
+    document.getElementById('networth-display').textContent = fmt(trueNetWorth);
+    document.getElementById('networth-display').className = trueNetWorth < 0 ? "nw-value red" : "nw-value green";
     
     document.getElementById('assets-display').textContent = fmt(totalAssets);
     document.getElementById('liabilities-display').textContent = fmt(totalLiabilities);
 
-    // ── Dynamic Waterfall Milestone Simulation Engine ──
+    // ── Elements & Timeline Handles ──
     const debtPanel = document.getElementById('debt-burn-panel');
     const freeDateEl = document.getElementById('debt-free-date');
     const freeMonthsEl = document.getElementById('debt-free-months');
@@ -835,6 +1041,21 @@
     const fiProgressElement = document.getElementById('fi-progress-pct');
     const fiFreedomDateElement = document.getElementById('fi-freedom-date');
 
+    const nodeDebt = document.getElementById('node-debt');
+    const nodeRunway = document.getElementById('node-runway');
+    const nodeCoast = document.getElementById('node-coast');
+    const nodeFi = document.getElementById('node-fi');
+
+    const statusDebt = document.getElementById('status-debt');
+    const statusRunway = document.getElementById('status-runway');
+    const statusCoast = document.getElementById('status-coast');
+    const statusFi = document.getElementById('status-fi');
+
+    const dateDebt = document.getElementById('date-debt');
+    const dateRunway = document.getElementById('date-runway');
+    const dateCoast = document.getElementById('date-coast');
+    const dateFi = document.getElementById('date-fi');
+
     const annualExpenses = monthlyExpenses * 12;
     const fiTarget = annualExpenses * 25;
     fiTargetElement.textContent = fiTarget > 0 ? fmt(fiTarget) : '$0';
@@ -842,14 +1063,9 @@
     const progressPct = fiTarget > 0 ? Math.max(0, (trueNetWorth / fiTarget) * 100) : 0;
     fiProgressElement.textContent = progressPct.toFixed(1) + '%';
 
-    // Extract User Defined Debt APR %
     const userDebtApr = parseVal(document.getElementById('debt-apr-input').value) / 100;
 
-    if (v.consumerDebt > 0) {
-      debtPanel.style.display = 'block';
-    } else {
-      debtPanel.style.display = 'none';
-    }
+    debtPanel.style.display = v.consumerDebt > 0 ? 'block' : 'none';
 
     if (netSurplus <= 0) {
       freeDateEl.textContent = 'Stalled';
@@ -857,9 +1073,14 @@
       freeMonthsEl.textContent = '∞';
       totalInterestEl.textContent = 'Compounding';
       totalInterestEl.style.color = 'var(--red)';
-      
       fiFreedomDateElement.textContent = 'Stalled';
       fiFreedomDateElement.style.color = 'var(--red)';
+
+      // Timeline Deficit States
+      [nodeDebt, nodeRunway, nodeCoast, nodeFi].forEach(n => n.classList.remove('active', 'complete'));
+      statusDebt.textContent = v.consumerDebt > 0 ? "Stalled" : "Cleared";
+      statusRunway.textContent = "Stalled"; statusCoast.textContent = "Stalled"; statusFi.textContent = "Stalled";
+      dateDebt.textContent = "—"; dateRunway.textContent = "—"; dateCoast.textContent = "—"; dateFi.textContent = "—";
     } else {
       // ── RUN WATERFALL LOOPER ENGINE ──
       let currentDebt = v.consumerDebt;
@@ -873,12 +1094,34 @@
       let totalInterestPaid = 0;
       let targetEmergencyFund = monthlyExpenses * 6;
       
-      let debtFreedomMonthCount = null;
+      let debtFreedomMonthCount = v.consumerDebt > 0 ? null : 0;
+      let runwayFundedMonthCount = null;
+      let coastFiMonthCount = null;
+      let fullFiMonthCount = null;
+      
       const maxSimulationLimit = 600; 
+
+      // Pre-evaluation checks
+      if (currentCash >= targetEmergencyFund) runwayFundedMonthCount = 0;
 
       while (totalMonthsElapsed < maxSimulationLimit) {
         let dynamicNetWorth = (currentCash + currentInvestments) - currentDebt;
+        
+        // Track Coast FI milestone (Investments grow to target naturally by age 65 without contributions)
+        if (coastFiMonthCount === null && currentDebt <= 0) {
+          let yearsToRetire = 65 - (31 + (totalMonthsElapsed / 12)); // Hard baseline target window
+          if (yearsToRetire > 0) {
+            let compoundingFutureValue = currentInvestments * Math.pow(1 + 0.07, yearsToRetire);
+            if (compoundingFutureValue >= fiTarget) {
+              coastFiMonthCount = totalMonthsElapsed;
+            }
+          } else if (dynamicNetWorth >= fiTarget) {
+            coastFiMonthCount = totalMonthsElapsed;
+          }
+        }
+
         if (dynamicNetWorth >= fiTarget && currentDebt <= 0 && currentCash >= targetEmergencyFund) {
+          if (fullFiMonthCount === null) fullFiMonthCount = totalMonthsElapsed;
           break;
         }
 
@@ -886,7 +1129,6 @@
         if (currentDebt > 0) {
           const interestAccrued = currentDebt * rDebtMonthly;
           
-          // Safety guard if interest outpaces net monthly savings surplus
           if (interestAccrued >= netSurplus && rDebtMonthly > 0) {
             totalMonthsElapsed = maxSimulationLimit;
             totalInterestPaid = Infinity;
@@ -900,24 +1142,22 @@
             const overflow = Math.abs(currentDebt);
             currentDebt = 0;
             currentCash += overflow;
+            debtFreedomMonthCount = totalMonthsElapsed + 1;
           }
           
           currentInvestments *= (1 + rFiMonthly);
           totalMonthsElapsed++;
-          
-          if (currentDebt === 0) {
-            debtFreedomMonthCount = totalMonthsElapsed;
-          }
           continue;
         }
 
         // Tier 2: Refuel Emergency Capital Stack to solid 6 months
         if (currentCash < targetEmergencyFund) {
           currentCash += netSurplus;
-          if (currentCash > targetEmergencyFund) {
+          if (currentCash >= targetEmergencyFund) {
             const overflow = currentCash - targetEmergencyFund;
             currentCash = targetEmergencyFund;
             currentInvestments += overflow;
+            runwayFundedMonthCount = totalMonthsElapsed + 1;
           }
           
           currentInvestments *= (1 + rFiMonthly);
@@ -930,41 +1170,103 @@
         totalMonthsElapsed++;
       }
 
-      // Update Phase 1 Metrics (Debt UI)
+      // Reset Node styles
+      [nodeDebt, nodeRunway, nodeCoast, nodeFi].forEach(n => n.classList.remove('active', 'complete'));
+
+      // ── Process Phase 1: High-Priority Debt ──
       if (totalInterestPaid === Infinity) {
-        freeDateEl.textContent = 'Trapped';
-        freeDateEl.style.color = 'var(--red)';
-        freeMonthsEl.textContent = '∞';
-        totalInterestEl.textContent = 'Interest Loop';
-        totalInterestEl.style.color = 'var(--red)';
-        
-        fiFreedomDateElement.textContent = 'Never';
-        fiFreedomDateElement.style.color = 'var(--red)';
+        freeDateEl.textContent = 'Trapped'; freeDateEl.style.color = 'var(--red)';
+        freeMonthsEl.textContent = '∞'; totalInterestEl.textContent = 'Interest Loop';
+        fiFreedomDateElement.textContent = 'Never'; fiFreedomDateElement.style.color = 'var(--red)';
+        statusDebt.textContent = "Looping"; dateDebt.textContent = "Never";
+        nodeDebt.classList.add('active');
       } else if (v.consumerDebt > 0 && debtFreedomMonthCount !== null) {
-        const debtTargetDate = new Date();
-        debtTargetDate.setMonth(debtTargetDate.getMonth() + debtFreedomMonthCount);
-        freeDateEl.textContent = debtTargetDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        freeDateEl.style.color = 'var(--green)';
+        const dDate = new Date(); dDate.setMonth(dDate.getMonth() + debtFreedomMonthCount);
+        const dateStr = dDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        
+        freeDateEl.textContent = dateStr; freeDateEl.style.color = 'var(--green)';
         freeMonthsEl.textContent = debtFreedomMonthCount + ' mos';
         totalInterestEl.textContent = fmt(totalInterestPaid);
-        totalInterestEl.style.color = 'var(--amber)';
+        
+        nodeDebt.classList.add('active');
+        statusDebt.textContent = "Burning";
+        dateDebt.textContent = dateStr;
       } else {
-        freeDateEl.textContent = 'Cleared';
-        freeDateEl.style.color = 'var(--green)';
-        freeMonthsEl.textContent = '0 mos';
-        totalInterestEl.textContent = '$0';
+        freeDateEl.textContent = 'Cleared'; freeDateEl.style.color = 'var(--green)';
+        freeMonthsEl.textContent = '0 mos'; totalInterestEl.textContent = '$0';
+        
+        nodeDebt.classList.add('complete');
+        statusDebt.textContent = "Complete";
+        dateDebt.textContent = "Done";
       }
 
-      // Update Phase 3 Metrics (FI UI Target)
+      // ── Process Phase 2: Emergency Runway ──
+      if (totalInterestPaid !== Infinity) {
+        if (v.consumerDebt > 0) {
+          statusRunway.textContent = "Queued";
+          const runDate = new Date(); runDate.setMonth(runDate.getMonth() + (runwayFundedMonthCount || 0));
+          dateRunway.textContent = runwayFundedMonthCount !== null ? runDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "—";
+        } else if (v.cash < targetEmergencyFund) {
+          nodeRunway.classList.add('active');
+          statusRunway.textContent = "Refueling";
+          const runDate = new Date(); runDate.setMonth(runDate.getMonth() + (runwayFundedMonthCount || 0));
+          dateRunway.textContent = runDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        } else {
+          nodeRunway.classList.add('complete');
+          statusRunway.textContent = "Secure";
+          dateRunway.textContent = "Done";
+        }
+      }
+
+      // ── Process Phase 3: Coast FI ──
+      if (totalInterestPaid !== Infinity) {
+        if (coastFiMonthCount !== null) {
+          const coastDate = new Date(); coastDate.setMonth(coastDate.getMonth() + coastFiMonthCount);
+          const coastAge = 31 + (coastFiMonthCount / 12);
+          const coastStr = coastDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          
+          dateCoast.textContent = `${coastStr} (Age ${Math.round(coastAge)})`;
+          if (coastFiMonthCount === 0) {
+            nodeCoast.classList.add('complete');
+            statusCoast.textContent = "Achieved";
+          } else if (v.consumerDebt === 0 && v.cash >= targetEmergencyFund) {
+            nodeCoast.classList.add('active');
+            statusCoast.textContent = "Compounding";
+          } else {
+            statusCoast.textContent = "Queued";
+          }
+        } else {
+          statusCoast.textContent = "Locked";
+          dateCoast.textContent = "—";
+        }
+      }
+
+      // ── Process Phase 4: Full Financial Independence ──
       if (totalMonthsElapsed >= maxSimulationLimit && totalInterestPaid !== Infinity) {
         fiFreedomDateElement.textContent = '25+ Years';
         fiFreedomDateElement.style.color = 'var(--amber)';
-      } else if (totalInterestPaid !== Infinity) {
-        const fiTargetCalendarDate = new Date();
-        fiTargetCalendarDate.setMonth(fiTargetCalendarDate.getMonth() + totalMonthsElapsed);
+        statusFi.textContent = "Accumulating";
+        dateFi.textContent = "25+ Yrs";
+        if (v.consumerDebt === 0 && v.cash >= targetEmergencyFund && statusCoast.textContent !== "Compounding") {
+          nodeFi.classList.add('active');
+        }
+      } else if (totalInterestPaid !== Infinity && fullFiMonthCount !== null) {
+        const fiDate = new Date(); fiDate.setMonth(fiDate.getMonth() + fullFiMonthCount);
+        const fiStr = fiDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
         
-        fiFreedomDateElement.textContent = fiTargetCalendarDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        fiFreedomDateElement.textContent = fiStr;
         fiFreedomDateElement.style.color = 'var(--purple)';
+        dateFi.textContent = fiStr;
+        
+        if (fullFiMonthCount === 0) {
+          nodeFi.classList.add('complete');
+          statusFi.textContent = "Independent";
+        } else if (v.consumerDebt === 0 && v.cash >= targetEmergencyFund && coastFiMonthCount === 0) {
+          nodeFi.classList.add('active');
+          statusFi.textContent = "Accelerating";
+        } else {
+          statusFi.textContent = "Queued";
+        }
       }
     }
 
@@ -973,8 +1275,7 @@
     const emergencyElement = document.getElementById('metric-emergency-runway');
     
     if (totalAssets === 0 && totalLiabilities === 0) {
-      emergencyElement.textContent = '—';
-      emergencyElement.className = "metric-value";
+      emergencyElement.textContent = '—'; emergencyElement.className = "metric-value";
     } else {
       emergencyElement.textContent = runwayMonths.toFixed(1) + ' Months';
       if (runwayMonths >= 6) { emergencyElement.className = "metric-value good"; }
@@ -988,12 +1289,9 @@
     const replenishElement = document.getElementById('metric-replenish-time');
 
     if (neededBuffer === 0) {
-      replenishElement.textContent = 'Fully Seeded';
-      replenishElement.className = "metric-value good";
+      replenishElement.textContent = 'Fully Seeded'; replenishElement.className = "metric-value good";
     } else if (netSurplus <= 0) {
-      replenishElement.textContent = 'Deficit / No Margin';
-      replenishElement.className = "metric-value";
-      replenishElement.style.color = "var(--red)";
+      replenishElement.textContent = 'Deficit / No Margin'; replenishElement.className = "metric-value"; replenishElement.style.color = "var(--red)";
     } else {
       const monthsNeeded = neededBuffer / netSurplus;
       replenishElement.textContent = monthsNeeded.toFixed(1) + ' Months';
@@ -1011,8 +1309,7 @@
     const ratioElement = document.getElementById('metric-debt-ratio');
     
     if (totalAssets === 0 && totalLiabilities === 0) {
-      ratioElement.textContent = '—';
-      ratioElement.className = "metric-value";
+      ratioElement.textContent = '—'; ratioElement.className = "metric-value";
     } else {
       ratioElement.textContent = debtRatio.toFixed(1) + '%';
       if (debtRatio < 35) { ratioElement.className = "metric-value good"; }

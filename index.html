@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,7 +6,7 @@
 <title>Financial Command Center</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght=300;400;500&family=DM+Mono:wght=400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -113,23 +112,6 @@
     margin-bottom: 12px;
     margin-top: 1rem;
   }
-
-  /* ── Market Tickers Section ── */
-  .ticker-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 14px;
-    margin-bottom: 2rem;
-  }
-  .ticker-frame-wrap {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
-    height: 130px;
-  }
-  .ticker-frame-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
  
   /* ── Net worth bar ── */
   .networth-bar {
@@ -238,7 +220,6 @@
   /* ── Projector sliders & manual inputs ── */
   .slider-group { margin-bottom: 16px; }
   .slider-label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; }
-  .slider-val { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; color: var(--text-primary); }
   
   .slider-input {
     font-family: 'DM Mono', monospace;
@@ -295,19 +276,6 @@
   <h1 class="page-title">Financial Command Center</h1>
   <p class="page-subtitle">Track your true net worth, debt burn-down, and emergency readiness in real time.</p>
  
-  <p class="section-label">Live Market Monitor</p>
-  <div class="ticker-grid">
-    <div class="ticker-frame-wrap">
-      <iframe src="https://s.tradingview.com/embed-widget/mini-symbol-overview/?symbol=AMEX%3ASPY&theme=light&trendLineColor=%232563eb&underLineColor=rgba(37%2C+99%2C+237%2C+0.15)&underLineBottomColor=rgba(37%2C+99%2C+237%2C+0.0)&isTransparent=true&locale=en"></iframe>
-    </div>
-    <div class="ticker-frame-wrap">
-      <iframe src="https://s.tradingview.com/embed-widget/mini-symbol-overview/?symbol=TVC%3AGOLD&theme=light&trendLineColor=%23d97706&underLineColor=rgba(217%2C+119%2C+6%2C+0.15)&underLineBottomColor=rgba(217%2C+119%2C+6%2C+0.0)&isTransparent=true&locale=en"></iframe>
-    </div>
-    <div class="ticker-frame-wrap">
-      <iframe src="https://s.tradingview.com/embed-widget/mini-symbol-overview/?symbol=COINBASE%3ABTCUSD&theme=light&trendLineColor=%230e9f6e&underLineColor=rgba(14%2C+159%2C+110%2C+0.15)&underLineBottomColor=rgba(14%2C+159%2C+110%2C+0.0)&isTransparent=true&locale=en"></iframe>
-    </div>
-  </div>
-
   <div class="networth-bar">
     <div class="nw-item">
       <div class="nw-label">True Net Worth</div>
@@ -336,7 +304,7 @@
       <div class="card-label">Checking &amp; Savings</div>
       <div class="card-input-row">
         <span class="card-prefix">$</span>
-        <input class="card-input" type="text" value="1" />
+        <input class="card-input" type="text" value="0" />
       </div>
       <div class="card-sub">Emergency fund &amp; operating cash</div>
     </div>
@@ -348,7 +316,7 @@
       <div class="card-label">Retirement (401k / IRA)</div>
       <div class="card-input-row">
         <span class="card-prefix">$</span>
-        <input class="card-input" type="text" value="1" />
+        <input class="card-input" type="text" value="0" />
       </div>
       <div class="card-sub">Locked growth portfolio</div>
     </div>
@@ -360,7 +328,7 @@
       <div class="card-label">Primary Home Value</div>
       <div class="card-input-row">
         <span class="card-prefix">$</span>
-        <input class="card-input" type="text" value="1" />
+        <input class="card-input" type="text" value="0" />
       </div>
       <div class="card-sub">Current estimated market value</div>
     </div>
@@ -372,7 +340,7 @@
       <div class="card-label">Brokerage &amp; Hard Assets</div>
       <div class="card-input-row">
         <span class="card-prefix">$</span>
-        <input class="card-input" type="text" value="1" />
+        <input class="card-input" type="text" value="0" />
       </div>
       <div class="card-sub">Stocks, precious metals, crypto</div>
     </div>
@@ -384,7 +352,7 @@
       <div class="card-label">Credit Cards &amp; Consumer Loans</div>
       <div class="card-input-row">
         <span class="card-prefix">$</span>
-        <input class="card-input" type="text" value="1" />
+        <input class="card-input" type="text" value="0" />
       </div>
       <div class="card-sub">Cards, auto loans, student loans</div>
     </div>
@@ -396,7 +364,7 @@
       <div class="card-label">Mortgage Balance</div>
       <div class="card-input-row">
         <span class="card-prefix">$</span>
-        <input class="card-input" type="text" value="1" />
+        <input class="card-input" type="text" value="0" />
       </div>
       <div class="card-sub">Remaining property loan principal</div>
     </div>
@@ -410,7 +378,7 @@
        
       <div class="slider-group" style="margin-top: 10px; margin-bottom: 24px;">
         <div class="slider-label">Estimated Monthly Household Expenses <span class="slider-val" id="lbl-expenses">$5,000/mo</span></div>
-        <input type="range" min="0" max="15000" step="100" value="5000" id="sl-expenses" />
+        <input type="range" min="1500" max="15000" step="100" value="5000" id="sl-expenses" />
       </div>
 
       <div class="metric-row">
@@ -450,14 +418,14 @@
           Starting Investment Capital 
           <input type="text" class="slider-input" id="txt-balance" value="$0" />
         </div>
-        <input type="range" min="0" max="5000000" step="1" value="0" id="sl-balance" />
+        <input type="range" min="0" max="5000000" step="500" value="0" id="sl-balance" />
       </div>
       <div class="slider-group">
         <div class="slider-label">
           Monthly Investment 
           <input type="text" class="slider-input" id="txt-contrib" value="$1,000/mo" />
         </div>
-        <input type="range" min="0" max="15000" step="1" value="1000" id="sl-contrib" />
+        <input type="range" min="0" max="15000" step="50" value="1000" id="sl-contrib" />
       </div>
       <div class="slider-group">
         <div class="slider-label">
@@ -532,22 +500,34 @@
     // Metric 1: Emergency Fund Buffer
     const runwayMonths = v.cash / (monthlyExpenses || 1);
     const emergencyElement = document.getElementById('metric-emergency-runway');
-    emergencyElement.textContent = runwayMonths.toFixed(1) + ' Months';
-    if (runwayMonths >= 6) { emergencyElement.className = "metric-value good"; }
-    else if (runwayMonths >= 3) { emergencyElement.className = "metric-value warning"; }
-    else { emergencyElement.className = "metric-value"; emergencyElement.style.color = "var(--red)"; }
+    
+    if (totalAssets === 0 && totalLiabilities === 0) {
+      emergencyElement.textContent = '—';
+      emergencyElement.className = "metric-value";
+    } else {
+      emergencyElement.textContent = runwayMonths.toFixed(1) + ' Months';
+      if (runwayMonths >= 6) { emergencyElement.className = "metric-value good"; }
+      else if (runwayMonths >= 3) { emergencyElement.className = "metric-value warning"; }
+      else { emergencyElement.className = "metric-value"; emergencyElement.style.color = "var(--red)"; }
+    }
 
     // Metric 2: Home Equity Calc
     const equityVal = v.homeValue - v.mortgage;
-    document.getElementById('metric-home-equity').textContent = fmt(equityVal);
+    document.getElementById('metric-home-equity').textContent = (v.homeValue === 0 && v.mortgage === 0) ? '—' : fmt(equityVal);
 
     // Metric 3: Debt-to-Asset Percentages
     const debtRatio = (totalLiabilities / (totalAssets || 1)) * 100;
     const ratioElement = document.getElementById('metric-debt-ratio');
-    ratioElement.textContent = debtRatio.toFixed(1) + '%';
-    if (debtRatio < 35) { ratioElement.className = "metric-value good"; }
-    else if (debtRatio < 60) { ratioElement.className = "metric-value warning"; }
-    else { ratioElement.className = "metric-value"; ratioElement.style.color = "var(--red)"; }
+    
+    if (totalAssets === 0 && totalLiabilities === 0) {
+      ratioElement.textContent = '—';
+      ratioElement.className = "metric-value";
+    } else {
+      ratioElement.textContent = debtRatio.toFixed(1) + '%';
+      if (debtRatio < 35) { ratioElement.className = "metric-value good"; }
+      else if (debtRatio < 60) { ratioElement.className = "metric-value warning"; }
+      else { ratioElement.className = "metric-value"; ratioElement.style.color = "var(--red)"; }
+    }
 
     // Refresh Struct Chart
     if (assetDonut) {
@@ -559,7 +539,10 @@
   // Live Event Binding
   document.querySelectorAll('.card-input').forEach(inp => {
     inp.addEventListener('input', recalculateDashboard);
-    inp.addEventListener('focus', () => { inp.value = inp.value.replace(/,/g, ''); });
+    inp.addEventListener('focus', () => { 
+      if(parseVal(inp.value) === 0) inp.value = '';
+      else inp.value = inp.value.replace(/,/g, ''); 
+    });
     inp.addEventListener('blur', () => {
       inp.value = Math.round(parseVal(inp.value)).toLocaleString();
       recalculateDashboard();
@@ -636,14 +619,12 @@
     const slElement = document.getElementById(binding.slId);
 
     txtElement.addEventListener('focus', () => {
-      // Strip formatting characters to make manual editing easy
       txtElement.value = txtElement.value.replace(/[$,\/mo\syrs%]/g, '');
     });
 
     txtElement.addEventListener('input', () => {
       let cleaned = binding.clean(txtElement.value);
       
-      // Enforce slider min/max limits
       if (cleaned > parseFloat(slElement.max)) cleaned = parseFloat(slElement.max);
       if (cleaned < parseFloat(slElement.min)) cleaned = parseFloat(slElement.min);
       
@@ -652,7 +633,6 @@
     });
 
     txtElement.addEventListener('blur', () => {
-      // Reapply visual cosmetics on focus out
       updateProjector();
     });
   });
@@ -663,7 +643,7 @@
     data: {
       labels: ['Cash', 'Retirement', 'Property', 'Other Assets'],
       datasets: [{
-        data: [32000, 145000, 380000, 28500],
+        data: [0, 0, 0, 0],
         backgroundColor: ['#2563eb', '#0e9f6e', '#7c3aed', '#d97706'],
         borderWidth: 0
       }]

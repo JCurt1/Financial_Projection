@@ -234,9 +234,7 @@
     width: 100%;
     font-weight: 500;
   }
-  .income-field-wrap input.mono-type {
-    font-family: 'DM Mono', monospace;
-  }
+  .income-field-wrap input.mono-type { font-family: 'DM Mono', monospace; }
 
   .cashflow-summary {
     display: flex;
@@ -251,35 +249,44 @@
   .cf-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); font-weight: 500; }
   .cf-val { font-size: 20px; font-weight: 500; font-family: 'DM Mono', monospace; margin-top: 1px; }
   
-  /* ── Debt Burn-Down Component ── */
-  .debt-panel {
-    display: none; /* Controlled dynamically by JS */
-    border-left: 4px solid var(--amber);
+  /* ── Parallel Diagnostics Grid ── */
+  .diagnostics-split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 16px;
+    margin-bottom: 1.5rem;
   }
-  .debt-header-row {
+  @media (max-width: 768px) { .diagnostics-split { grid-template-columns: 1fr; } }
+
+  .diag-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+  .diag-panel.debt-theme { border-left: 4px solid var(--amber); }
+  .diag-panel.fi-theme { border-left: 4px solid var(--purple); }
+
+  .diag-header-row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     margin-bottom: 16px;
   }
-  .debt-headline {
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--text-primary);
-  }
-  .debt-timeline-metrics {
+  .diag-headline { font-size: 15px; font-weight: 500; color: var(--text-primary); }
+  .diag-metrics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 14px;
-    margin-bottom: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
   }
-  .debt-metric-box {
+  .diag-metric-box {
     background: var(--surface-2);
-    padding: 14px;
+    padding: 12px;
     border-radius: var(--radius-md);
   }
-  .debt-box-title { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: 500; letter-spacing: 0.03em; }
-  .debt-box-value { font-size: 22px; font-weight: 500; font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .diag-box-title { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; font-weight: 500; letter-spacing: 0.03em; }
+  .diag-box-value { font-size: 18px; font-weight: 500; font-family: 'DM Mono', monospace; margin-top: 2px; }
  
   .two-col {
     display: grid;
@@ -372,7 +379,6 @@
   <h1 class="page-title">Financial Command Center</h1>
   <p class="page-subtitle">Track your true net worth, debt burn-down, and emergency readiness in real time.</p>
  
-  <!-- True Net Worth Status Bar -->
   <div class="networth-bar">
     <div class="nw-item">
       <div class="nw-label">True Net Worth</div>
@@ -391,7 +397,6 @@
     </div>
   </div>
  
-  <!-- Household Balance Sheet Asset Cards -->
   <p class="section-label">Household Balance Sheet — Click values to edit (Age 30 National Medians)</p>
   <div class="cards-grid" id="cards">
  
@@ -469,7 +474,6 @@
  
   </div>
 
-  <!-- Smart Cash Flow Optimization Section -->
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
     <div class="income-grid">
@@ -511,31 +515,54 @@
     </div>
   </div>
   
-  <!-- Active Debt Burn-Down Diagnostics Engine -->
-  <div class="full-panel debt-panel" id="debt-burn-panel">
-    <div class="debt-header-row">
-      <span class="debt-headline">🔥 High-Priority Debt Burn-Down Plan</span>
-      <span class="cf-label" style="color: var(--text-muted);">Assumes a weighted 12% average interest across consumer accounts</span>
+  <div class="diagnostics-split">
+    
+    <div class="diag-panel debt-theme" id="debt-burn-panel">
+      <div class="diag-header-row">
+        <span class="diag-headline">🔥 High-Priority Debt Burn-Down</span>
+        <span class="cf-label" style="color: var(--text-muted); font-size: 10px;">Assumes 12% APR</span>
+      </div>
+      <div class="diag-metrics-grid">
+        <div class="diag-metric-box">
+          <span class="diag-box-title">Freedom Date</span>
+          <div class="diag-box-value" style="color: var(--green);" id="debt-free-date">—</div>
+        </div>
+        <div class="diag-metric-box">
+          <span class="diag-box-title">Months Left</span>
+          <div class="diag-box-value" id="debt-free-months">—</div>
+        </div>
+        <div class="diag-metric-box">
+          <span class="diag-box-title">Friction Interest</span>
+          <div class="diag-box-value" style="color: var(--amber);" id="debt-total-interest">—</div>
+        </div>
+      </div>
     </div>
-    <div class="debt-timeline-metrics">
-      <div class="debt-metric-box">
-        <span class="debt-box-title">Debt Freedom Target</span>
-        <div class="debt-box-value" style="color: var(--green);" id="debt-free-date">—</div>
+
+    <div class="diag-panel fi-theme">
+      <div class="diag-header-row">
+        <span class="diag-headline">🚀 Financial Independence Checkpoint</span>
+        <span class="cf-label" style="color: var(--text-muted); font-size: 10px;">25x Rule Track</span>
       </div>
-      <div class="debt-metric-box">
-        <span class="debt-box-title">Months to Zero Balance</span>
-        <div class="debt-box-value" id="debt-free-months">—</div>
-      </div>
-      <div class="debt-metric-box">
-        <span class="debt-box-title">Total Intercepted Interest</span>
-        <div class="debt-box-value" style="color: var(--amber);" id="debt-total-interest">—</div>
+      <div class="diag-metrics-grid">
+        <div class="diag-metric-box">
+          <span class="diag-box-title">FI Number (25x)</span>
+          <div class="diag-box-value" style="color: var(--blue);" id="fi-number-target">—</div>
+        </div>
+        <div class="diag-metric-box">
+          <span class="diag-box-title">Current Progress</span>
+          <div class="diag-box-value" id="fi-progress-pct">—</div>
+        </div>
+        <div class="diag-metric-box">
+          <span class="diag-box-title">Coast FI Status</span>
+          <div class="diag-box-value" id="coast-fi-status">—</div>
+        </div>
       </div>
     </div>
+
   </div>
  
   <div class="two-col">
  
-    <!-- Left Hand: Health & Allocation Diagnostics -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Financial Health Diagnostics</p>
        
@@ -584,7 +611,6 @@
       </div>
     </div>
  
-    <!-- Right Hand: Yield Estimations -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Wealth Compounding Engine</p>
  
@@ -763,6 +789,7 @@
     // ── Dynamic Debt Burn-Down Logic ──
     const debtPanel = document.getElementById('debt-burn-panel');
     if (v.consumerDebt > 0) {
+      debtPanel.style.visibility = 'visible';
       debtPanel.style.display = 'block';
       const freeDateEl = document.getElementById('debt-free-date');
       const freeMonthsEl = document.getElementById('debt-free-months');
@@ -775,18 +802,15 @@
         totalInterestEl.textContent = 'Compounding';
         totalInterestEl.style.color = 'var(--red)';
       } else {
-        // Run Amortization/Burn Down Engine (Assuming standard 12% apr composite consumer debt)
         let balance = v.consumerDebt;
         const rMonthly = 0.12 / 12;
         let months = 0;
         let totalInterestPaid = 0;
-        const maxMonths = 360; // Safeguard
+        const maxMonths = 360;
 
         while (balance > 0 && months < maxMonths) {
           const interestAccrued = balance * rMonthly;
           totalInterestPaid += interestAccrued;
-          
-          // Paydown using entire net savings margin
           balance = (balance + interestAccrued) - netSurplus;
           months++;
         }
@@ -802,16 +826,40 @@
           
           freeDateEl.textContent = targetDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
           freeDateEl.style.color = 'var(--green)';
-          freeMonthsEl.textContent = months + ' Months';
-          
-          // Estimate intercepted interest saved vs paying just minimums over standard amortized track
-          const minimumPaymentTrackInterest = v.consumerDebt * 0.12 * (months / 12); 
+          freeMonthsEl.textContent = months + ' mos';
           totalInterestEl.textContent = fmt(totalInterestPaid);
           totalInterestEl.style.color = 'var(--amber)';
         }
       }
     } else {
+      // Keep alignment space clear but hidden cleanly if 0 debt
       debtPanel.style.display = 'none';
+    }
+
+    // ── Dynamic FI / Coast FI Engine ──
+    const annualExpenses = monthlyExpenses * 12;
+    const fiTarget = annualExpenses * 25;
+    document.getElementById('fi-number-target').textContent = fiTarget > 0 ? fmt(fiTarget) : '$0';
+
+    const progressPct = fiTarget > 0 ? Math.max(0, (trueNetWorth / fiTarget) * 100) : 0;
+    document.getElementById('fi-progress-pct').textContent = progressPct.toFixed(1) + '%';
+
+    // Coast FI Evaluation (Current Age 30 -> Age 65 = 35 years compounding horizon)
+    const yearsToRetire = 35;
+    const realGrowthRate = 0.07; // Core standard tracking expectation (inflation adjusted)
+    const projectedCoastValue = v.retirement * Math.pow(1 + realGrowthRate, yearsToRetire);
+    
+    const coastStatusEl = document.getElementById('coast-fi-status');
+    if (fiTarget === 0) {
+      coastStatusEl.textContent = 'No Lifestyle Cost';
+      coastStatusEl.style.color = 'var(--text-secondary)';
+    } else if (projectedCoastValue >= fiTarget) {
+      coastStatusEl.textContent = 'On Track';
+      coastStatusEl.style.color = 'var(--green)';
+    } else {
+      const shortcutGap = fiTarget - projectedCoastValue;
+      coastStatusEl.textContent = 'Gap: ' + fmt(shortcutGap);
+      coastStatusEl.style.color = 'var(--amber)';
     }
 
     // Metric 1: Emergency Fund Buffer

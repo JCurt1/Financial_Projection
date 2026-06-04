@@ -345,6 +345,7 @@
   <h1 class="page-title">Financial Command Center</h1>
   <p class="page-subtitle">Track your true net worth, debt burn-down, and emergency readiness in real time.</p>
  
+  <!-- True Net Worth Status Bar -->
   <div class="networth-bar">
     <div class="nw-item">
       <div class="nw-label">True Net Worth</div>
@@ -363,6 +364,7 @@
     </div>
   </div>
  
+  <!-- Household Balance Sheet Asset Cards -->
   <p class="section-label">Household Balance Sheet — Click values to edit (Age 30 National Medians)</p>
   <div class="cards-grid" id="cards">
  
@@ -440,6 +442,7 @@
  
   </div>
 
+  <!-- Smart Cash Flow Optimization Section -->
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
     <div class="income-grid">
@@ -483,11 +486,15 @@
  
   <div class="two-col">
  
+    <!-- Left Hand: Health & Allocation Diagnostics -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Financial Health Diagnostics</p>
        
       <div class="slider-group" style="margin-top: 10px; margin-bottom: 24px;">
-        <div class="slider-label">Estimated Monthly Household Expenses <span class="slider-val" id="lbl-expenses">$3,200/mo</span></div>
+        <div class="slider-label">
+          Estimated Monthly Household Expenses 
+          <input type="text" class="slider-input" id="txt-expenses" value="$3,200/mo" />
+        </div>
         <input type="range" min="0" max="25000" step="1" value="3200" id="sl-expenses" />
       </div>
 
@@ -528,6 +535,7 @@
       </div>
     </div>
  
+    <!-- Right Hand: Yield Estimations -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Wealth Compounding Engine</p>
  
@@ -653,7 +661,10 @@
   function recalculateDashboard() {
     const v = getDashboardValues();
     const monthlyExpenses = parseFloat(document.getElementById('sl-expenses').value);
-    document.getElementById('lbl-expenses').textContent = '$' + Math.round(monthlyExpenses).toLocaleString() + '/mo';
+    
+    if (document.activeElement !== document.getElementById('txt-expenses')) {
+      document.getElementById('txt-expenses').value = '$' + Math.round(monthlyExpenses).toLocaleString() + '/mo';
+    }
 
     // ── Progressive Tax Calculator Logic ──
     const grossAnnual = parseVal(document.getElementById('in-gross').value);
@@ -761,7 +772,26 @@
       recalculateDashboard();
     });
   });
-  document.getElementById('sl-expenses').addEventListener('input', recalculateDashboard);
+
+  // Expenses Bi-directional Event Listeners
+  const txtExpenses = document.getElementById('txt-expenses');
+  const slExpenses = document.getElementById('sl-expenses');
+
+  slExpenses.addEventListener('input', recalculateDashboard);
+  
+  txtExpenses.addEventListener('focus', () => {
+    txtExpenses.value = txtExpenses.value.replace(/[$,\/mo\s]/g, '');
+  });
+  txtExpenses.addEventListener('input', () => {
+    let cleaned = parseVal(txtExpenses.value);
+    if (cleaned > parseFloat(slExpenses.max)) cleaned = parseFloat(slExpenses.max);
+    if (cleaned < parseFloat(slExpenses.min)) cleaned = parseFloat(slExpenses.min);
+    slExpenses.value = cleaned;
+    recalculateDashboard();
+  });
+  txtExpenses.addEventListener('blur', () => {
+    recalculateDashboard();
+  });
 
   // Optimizer Panel Event Listeners
   ['in-gross', 'in-deductions'].forEach(id => {

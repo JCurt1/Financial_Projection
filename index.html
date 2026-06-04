@@ -183,7 +183,7 @@
   .card-input:focus { border-bottom-color: var(--blue); }
   .card-sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
 
-  /* ── Full Width & Columns Layout ── */
+  /* ── Full Width & Panels Layout ── */
   .full-panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -242,16 +242,44 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    background: var(--blue-light);
+    background: var(--surface-2);
     border-radius: var(--radius-md);
     padding: 12px 16px;
-    border-left: 4px solid var(--blue);
     height: 64px;
-    align-self: flex-end;
+    border-left: 4px solid var(--text-secondary);
   }
   .cf-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); font-weight: 500; }
-  .cf-val { font-size: 20px; font-weight: 500; font-family: 'DM Mono', monospace; color: var(--blue); margin-top: 1px; }
-  .cf-sub { font-size: 11px; color: var(--text-muted); }
+  .cf-val { font-size: 20px; font-weight: 500; font-family: 'DM Mono', monospace; margin-top: 1px; }
+  
+  /* ── Debt Burn-Down Component ── */
+  .debt-panel {
+    display: none; /* Controlled dynamically by JS */
+    border-left: 4px solid var(--amber);
+  }
+  .debt-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+  }
+  .debt-headline {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .debt-timeline-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .debt-metric-box {
+    background: var(--surface-2);
+    padding: 14px;
+    border-radius: var(--radius-md);
+  }
+  .debt-box-title { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: 500; letter-spacing: 0.03em; }
+  .debt-box-value { font-size: 22px; font-weight: 500; font-family: 'DM Mono', monospace; margin-top: 2px; }
  
   .two-col {
     display: grid;
@@ -287,7 +315,7 @@
 
   .donut-container { height: 200px; margin-top: 20px; position: relative; }
  
-  /* ── Projector sliders & manual inputs ── */
+  /* ── Projector sliders ── */
   .slider-group { margin-bottom: 16px; }
   .slider-label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; }
   
@@ -304,9 +332,7 @@
     width: 100px;
     padding: 0 2px;
   }
-  .slider-input:focus {
-    border-bottom-color: var(--blue);
-  }
+  .slider-input:focus { border-bottom-color: var(--blue); }
   
   input[type=range] {
     -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
@@ -346,6 +372,7 @@
   <h1 class="page-title">Financial Command Center</h1>
   <p class="page-subtitle">Track your true net worth, debt burn-down, and emergency readiness in real time.</p>
  
+  <!-- True Net Worth Status Bar -->
   <div class="networth-bar">
     <div class="nw-item">
       <div class="nw-label">True Net Worth</div>
@@ -364,6 +391,7 @@
     </div>
   </div>
  
+  <!-- Household Balance Sheet Asset Cards -->
   <p class="section-label">Household Balance Sheet — Click values to edit (Age 30 National Medians)</p>
   <div class="cards-grid" id="cards">
  
@@ -441,6 +469,7 @@
  
   </div>
 
+  <!-- Smart Cash Flow Optimization Section -->
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
     <div class="income-grid">
@@ -467,23 +496,46 @@
           <input type="text" id="in-deductions" class="mono-type" value="3,000" />
         </div>
       </div>
-      <div class="cashflow-summary">
+      <div class="cashflow-summary" style="border-left-color: var(--blue);">
         <span class="cf-label">Est. Monthly Tax (Inc FICA)</span>
-        <span class="cf-val" style="color: var(--text-secondary);" id="cf-tax-withheld">$0/mo</span>
+        <span class="cf-val" style="color: var(--blue);" id="cf-tax-withheld">$0/mo</span>
       </div>
-      <div class="cashflow-summary">
+      <div class="cashflow-summary" style="border-left-color: var(--purple);">
         <span class="cf-label">Net Take-Home Pay</span>
-        <span class="cf-val" id="cf-takehome">$0/mo</span>
+        <span class="cf-val" style="color: var(--purple);" id="cf-takehome">$0/mo</span>
       </div>
-      <div class="cashflow-summary" style="background: var(--green-light); border-left-color: var(--green);">
+      <div class="cashflow-summary" id="cf-surplus-box" style="border-left-color: var(--green);">
         <span class="cf-label">Net Savings Margin</span>
         <span class="cf-val" style="color: var(--green);" id="cf-surplus">$0/mo</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Active Debt Burn-Down Diagnostics Engine -->
+  <div class="full-panel debt-panel" id="debt-burn-panel">
+    <div class="debt-header-row">
+      <span class="debt-headline">🔥 High-Priority Debt Burn-Down Plan</span>
+      <span class="cf-label" style="color: var(--text-muted);">Assumes a weighted 12% average interest across consumer accounts</span>
+    </div>
+    <div class="debt-timeline-metrics">
+      <div class="debt-metric-box">
+        <span class="debt-box-title">Debt Freedom Target</span>
+        <div class="debt-box-value" style="color: var(--green);" id="debt-free-date">—</div>
+      </div>
+      <div class="debt-metric-box">
+        <span class="debt-box-title">Months to Zero Balance</span>
+        <div class="debt-box-value" id="debt-free-months">—</div>
+      </div>
+      <div class="debt-metric-box">
+        <span class="debt-box-title">Total Intercepted Interest</span>
+        <div class="debt-box-value" style="color: var(--amber);" id="debt-total-interest">—</div>
       </div>
     </div>
   </div>
  
   <div class="two-col">
  
+    <!-- Left Hand: Health & Allocation Diagnostics -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Financial Health Diagnostics</p>
        
@@ -532,6 +584,7 @@
       </div>
     </div>
  
+    <!-- Right Hand: Yield Estimations -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Wealth Compounding Engine</p>
  
@@ -605,7 +658,6 @@
   function calculateFederalTax(grossIncome, filingStatus, adjustments) {
     const taxableIncome = Math.max(0, grossIncome - adjustments);
     
-    // Core Tax Structure Matrices
     const brackets = {
       single: [
         { upTo: 11600, rate: 0.10 },
@@ -642,7 +694,6 @@
       previousLimit = b.upTo;
     }
 
-    // Standard FICA Calculations (Medicare + Social Security Accruals capped)
     const ssCap = 168600; 
     const ssTax = Math.min(grossIncome, ssCap) * 0.062;
     const medicareTax = grossIncome * 0.0145;
@@ -662,12 +713,11 @@
       document.getElementById('txt-expenses').value = '$' + Math.round(monthlyExpenses).toLocaleString() + '/mo';
     }
 
-    // ── Progressive Tax Calculator Logic ──
+    // ── Tax Calculations ──
     const grossAnnual = parseVal(document.getElementById('in-gross').value);
     const filingStatus = document.getElementById('in-status').value;
     const preTaxDeductions = parseVal(document.getElementById('in-deductions').value);
 
-    // Standard Deductions Structure
     const stdDeduction = filingStatus === 'single' ? 14600 : 29200;
     const totalAdjustments = stdDeduction + preTaxDeductions;
 
@@ -683,10 +733,16 @@
     document.getElementById('cf-takehome').textContent = '$' + Math.round(monthlyTakeHome).toLocaleString() + '/mo';
     
     const surplusElement = document.getElementById('cf-surplus');
+    const surplusBox = document.getElementById('cf-surplus-box');
     surplusElement.textContent = (netSurplus >= 0 ? '+' : '') + '$' + Math.round(netSurplus).toLocaleString() + '/mo';
     
-    if (netSurplus < 0) { surplusElement.style.color = 'var(--red)'; } 
-    else { surplusElement.style.color = 'var(--green)'; }
+    if (netSurplus < 0) { 
+      surplusElement.style.color = 'var(--red)';
+      surplusBox.style.borderLeftColor = 'var(--red)';
+    } else { 
+      surplusElement.style.color = 'var(--green)';
+      surplusBox.style.borderLeftColor = 'var(--green)';
+    }
 
     // ── Asset Management Summary ──
     const totalAssets = v.cash + v.retirement + v.homeValue + v.brokerage;
@@ -703,6 +759,60 @@
     
     document.getElementById('assets-display').textContent = fmt(totalAssets);
     document.getElementById('liabilities-display').textContent = fmt(totalLiabilities);
+
+    // ── Dynamic Debt Burn-Down Logic ──
+    const debtPanel = document.getElementById('debt-burn-panel');
+    if (v.consumerDebt > 0) {
+      debtPanel.style.display = 'block';
+      const freeDateEl = document.getElementById('debt-free-date');
+      const freeMonthsEl = document.getElementById('debt-free-months');
+      const totalInterestEl = document.getElementById('debt-total-interest');
+
+      if (netSurplus <= 0) {
+        freeDateEl.textContent = 'Stalled';
+        freeDateEl.style.color = 'var(--red)';
+        freeMonthsEl.textContent = '∞ (Deficit)';
+        totalInterestEl.textContent = 'Compounding';
+        totalInterestEl.style.color = 'var(--red)';
+      } else {
+        // Run Amortization/Burn Down Engine (Assuming standard 12% apr composite consumer debt)
+        let balance = v.consumerDebt;
+        const rMonthly = 0.12 / 12;
+        let months = 0;
+        let totalInterestPaid = 0;
+        const maxMonths = 360; // Safeguard
+
+        while (balance > 0 && months < maxMonths) {
+          const interestAccrued = balance * rMonthly;
+          totalInterestPaid += interestAccrued;
+          
+          // Paydown using entire net savings margin
+          balance = (balance + interestAccrued) - netSurplus;
+          months++;
+        }
+
+        if (months >= maxMonths) {
+          freeDateEl.textContent = 'Treading Water';
+          freeDateEl.style.color = 'var(--amber)';
+          freeMonthsEl.textContent = '25+ Years';
+          totalInterestEl.textContent = 'High Friction';
+        } else {
+          const targetDate = new Date();
+          targetDate.setMonth(targetDate.getMonth() + months);
+          
+          freeDateEl.textContent = targetDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          freeDateEl.style.color = 'var(--green)';
+          freeMonthsEl.textContent = months + ' Months';
+          
+          // Estimate intercepted interest saved vs paying just minimums over standard amortized track
+          const minimumPaymentTrackInterest = v.consumerDebt * 0.12 * (months / 12); 
+          totalInterestEl.textContent = fmt(totalInterestPaid);
+          totalInterestEl.style.color = 'var(--amber)';
+        }
+      }
+    } else {
+      debtPanel.style.display = 'none';
+    }
 
     // Metric 1: Emergency Fund Buffer
     const runwayMonths = v.cash / (monthlyExpenses || 1);
@@ -756,14 +866,13 @@
       else { ratioElement.className = "metric-value"; ratioElement.style.color = "var(--red)"; }
     }
 
-    // Refresh Struct Chart
     if (assetDonut) {
       assetDonut.data.datasets[0].data = [v.cash, v.retirement, v.homeValue, v.brokerage];
       assetDonut.update('none');
     }
   }
  
-  // Balance Sheet Input Event Listeners
+  // Balance Sheet Input Listeners
   document.querySelectorAll('#cards .card-input').forEach(inp => {
     inp.addEventListener('input', recalculateDashboard);
     inp.addEventListener('focus', () => { 

@@ -181,8 +181,71 @@
   }
   .card-input:focus { border-bottom-color: var(--blue); }
   .card-sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+  /* ── Full Width & Columns Layout ── */
+  .full-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 1.5rem;
+  }
+
+  .income-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 24px;
+    margin-top: 10px;
+  }
+
+  .income-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .income-input-group label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .income-field-wrap {
+    display: flex;
+    align-items: center;
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+  }
+  .income-field-wrap span {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-right: 4px;
+  }
+  .income-field-wrap input, .income-field-wrap select {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--text-primary);
+    width: 100%;
+    font-weight: 500;
+  }
+
+  .cashflow-summary {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: var(--blue-light);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    border-left: 4px solid var(--blue);
+  }
+  .cf-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); font-weight: 500; }
+  .cf-val { font-size: 22px; font-weight: 500; font-family: 'DM Mono', monospace; color: var(--blue); margin-top: 2px; }
+  .cf-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
  
-  /* ── Two col layout ── */
   .two-col {
     display: grid;
     grid-template-columns: 1fr 1.2fr;
@@ -370,11 +433,48 @@
     </div>
  
   </div>
+
+  <div class="full-panel">
+    <p class="section-label" style="margin-top: 0;">Income &amp; Budget Optimization</p>
+    <div class="income-grid">
+      <div class="income-input-group">
+        <label for="in-gross">Gross Income</label>
+        <div class="income-field-wrap">
+          <span>$</span>
+          <input type="text" id="in-gross" value="120,000" />
+        </div>
+      </div>
+      <div class="income-input-group">
+        <label for="in-schedule">Pay Structure</label>
+        <div class="income-field-wrap">
+          <select id="in-schedule">
+            <option value="annual" selected>Accrued Annually</option>
+            <option value="monthly">Paid Monthly</option>
+          </select>
+        </div>
+      </div>
+      <div class="income-input-group">
+        <label for="in-deductions">Estimated Deductions (Taxes, 401k, Health)</label>
+        <div class="income-field-wrap">
+          <input type="text" id="in-deductions" value="30" style="text-align: right; padding-right: 2px;" />
+          <span>%</span>
+        </div>
+      </div>
+      <div class="cashflow-summary">
+        <span class="cf-label">Net Take-Home Pay</span>
+        <span class="cf-val" id="cf-takehome">$0/mo</span>
+      </div>
+      <div class="cashflow-summary" style="background: var(--green-light); border-left-color: var(--green);">
+        <span class="cf-label">Net Savings Margin</span>
+        <span class="cf-val" style="color: var(--green);" id="cf-surplus">$0/mo</span>
+      </div>
+    </div>
+  </div>
  
   <div class="two-col">
  
     <div class="panel">
-      <p class="section-label">Financial Health Diagnostics</p>
+      <p class="section-label" style="margin-top: 0;">Financial Health Diagnostics</p>
        
       <div class="slider-group" style="margin-top: 10px; margin-bottom: 24px;">
         <div class="slider-label">Estimated Monthly Household Expenses <span class="slider-val" id="lbl-expenses">$5,000/mo</span></div>
@@ -387,6 +487,14 @@
           <span class="metric-desc">Cash coverage based on monthly spend</span>
         </div>
         <span class="metric-value" id="metric-emergency-runway">—</span>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-meta">
+          <span class="metric-title">Replenishment Horizon</span>
+          <span class="metric-desc">Time required to seed a solid 6-mo buffer</span>
+        </div>
+        <span class="metric-value" id="metric-replenish-time">—</span>
       </div>
 
       <div class="metric-row">
@@ -411,7 +519,7 @@
     </div>
  
     <div class="panel">
-      <p class="section-label">Wealth Compounding Engine</p>
+      <p class="section-label" style="margin-top: 0;">Wealth Compounding Engine</p>
  
       <div class="slider-group">
         <div class="slider-label">
@@ -481,18 +589,33 @@
  
   let assetDonut;
   
-  // Balance Sheet Logic Engine
+  // Balance Sheet & Cash Flow Engine
   function recalculateDashboard() {
     const v = getDashboardValues();
     const monthlyExpenses = parseFloat(document.getElementById('sl-expenses').value);
     document.getElementById('lbl-expenses').textContent = '$' + monthlyExpenses.toLocaleString() + '/mo';
 
-    // Summing Equations
+    // ── Income & Budget Calculations ──
+    const grossIncome = parseVal(document.getElementById('in-gross').value);
+    const schedule = document.getElementById('in-schedule').value;
+    const deductionsPct = parseVal(document.getElementById('in-deductions').value) / 100;
+
+    let monthlyGross = schedule === 'annual' ? grossIncome / 12 : grossIncome;
+    let monthlyTakeHome = monthlyGross * (1 - deductionsPct);
+    let netSurplus = monthlyTakeHome - monthlyExpenses;
+
+    document.getElementById('cf-takehome').textContent = '$' + Math.round(monthlyTakeHome).toLocaleString() + '/mo';
+    const surplusElement = document.getElementById('cf-surplus');
+    surplusElement.textContent = (netSurplus >= 0 ? '+' : '') + '$' + Math.round(netSurplus).toLocaleString() + '/mo';
+    
+    if (netSurplus < 0) { surplusElement.style.color = 'var(--red)'; } 
+    else { surplusElement.style.color = 'var(--green)'; }
+
+    // ── Asset Management Summary ──
     const totalAssets = v.cash + v.retirement + v.homeValue + v.brokerage;
     const totalLiabilities = v.consumerDebt + v.mortgage;
     const trueNetWorth = totalAssets - totalLiabilities;
 
-    // Display Main Metrics Bars
     document.getElementById('networth-display').textContent = fmt(trueNetWorth);
     document.getElementById('assets-display').textContent = fmt(totalAssets);
     document.getElementById('liabilities-display').textContent = fmt(totalLiabilities);
@@ -511,11 +634,31 @@
       else { emergencyElement.className = "metric-value"; emergencyElement.style.color = "var(--red)"; }
     }
 
-    // Metric 2: Home Equity Calc
+    // Metric 2: Emergency Replenishment Horizon
+    const targetBuffer = monthlyExpenses * 6;
+    const neededBuffer = Math.max(0, targetBuffer - v.cash);
+    const replenishElement = document.getElementById('metric-replenish-time');
+
+    if (neededBuffer === 0) {
+      replenishElement.textContent = 'Fully Seeded';
+      replenishElement.className = "metric-value good";
+    } else if (netSurplus <= 0) {
+      replenishElement.textContent = 'Deficit / No Margin';
+      replenishElement.className = "metric-value";
+      replenishElement.style.color = "var(--red)";
+    } else {
+      const monthsNeeded = neededBuffer / netSurplus;
+      replenishElement.textContent = monthsNeeded.toFixed(1) + ' Months';
+      if (monthsNeeded <= 6) { replenishElement.className = "metric-value good"; }
+      else if (monthsNeeded <= 12) { replenishElement.className = "metric-value warning"; }
+      else { replenishElement.className = "metric-value"; replenishElement.style.color = "var(--text-primary)"; }
+    }
+
+    // Metric 3: Home Equity Calc
     const equityVal = v.homeValue - v.mortgage;
     document.getElementById('metric-home-equity').textContent = (v.homeValue === 0 && v.mortgage === 0) ? '—' : fmt(equityVal);
 
-    // Metric 3: Debt-to-Asset Percentages
+    // Metric 4: Debt-to-Asset Percentages
     const debtRatio = (totalLiabilities / (totalAssets || 1)) * 100;
     const ratioElement = document.getElementById('metric-debt-ratio');
     
@@ -536,8 +679,8 @@
     }
   }
  
-  // Live Event Binding
-  document.querySelectorAll('.card-input').forEach(inp => {
+  // Balance Sheet Input Event Listeners
+  document.querySelectorAll('#cards .card-input').forEach(inp => {
     inp.addEventListener('input', recalculateDashboard);
     inp.addEventListener('focus', () => { 
       if(parseVal(inp.value) === 0) inp.value = '';
@@ -549,6 +692,15 @@
     });
   });
   document.getElementById('sl-expenses').addEventListener('input', recalculateDashboard);
+
+  // Cash Flow Panel Event Listeners
+  ['in-gross', 'in-deductions'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('focus', () => { el.value = el.value.replace(/,/g, ''); });
+    el.addEventListener('blur', () => { el.value = Math.round(parseVal(el.value)).toLocaleString(); });
+    el.addEventListener('input', recalculateDashboard);
+  });
+  document.getElementById('in-schedule').addEventListener('change', recalculateDashboard);
  
   // Compound Growth Mathematics
   function calcFV(pv, pmt, r, n) {
@@ -559,14 +711,12 @@
   
   let growthChart;
   
-  // Update UI Elements based on Slider State
   function updateProjector() {
     const pv = parseFloat(document.getElementById('sl-balance').value);
     const pmt = parseFloat(document.getElementById('sl-contrib').value);
     const r = parseFloat(document.getElementById('sl-rate').value) / 100;
     const years = parseInt(document.getElementById('sl-years').value);
  
-    // Format text inputs if they aren't actively being typed into
     if (document.activeElement !== document.getElementById('txt-balance')) {
       document.getElementById('txt-balance').value = fmt(pv);
     }
@@ -587,7 +737,6 @@
     document.getElementById('fv-display').textContent = fmt(fv);
     document.getElementById('fv-gain').textContent = '+' + fmt(marketGain) + ' generated purely from compound yield';
  
-    // Re-Plot Array
     const labels = [], points = [];
     for (let y = 0; y <= years; y++) {
       labels.push(y === 0 ? 'Now' : 'Yr ' + y);
@@ -601,12 +750,12 @@
     }
   }
  
-  // Bi-directional Bindings: Slider Inputs
+  // Bi-directional Slider Bindings
   ['sl-balance', 'sl-contrib', 'sl-rate', 'sl-years'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateProjector);
   });
   
-  // Bi-directional Bindings: Manual Text Input Configurations
+  // Bi-directional Manual Text Fields Bindings
   const textBindings = [
     { txtId: 'txt-balance', slId: 'sl-balance', clean: val => parseVal(val) },
     { txtId: 'txt-contrib', slId: 'sl-contrib', clean: val => parseVal(val) },
@@ -624,10 +773,8 @@
 
     txtElement.addEventListener('input', () => {
       let cleaned = binding.clean(txtElement.value);
-      
       if (cleaned > parseFloat(slElement.max)) cleaned = parseFloat(slElement.max);
       if (cleaned < parseFloat(slElement.min)) cleaned = parseFloat(slElement.min);
-      
       slElement.value = cleaned;
       updateProjector();
     });
@@ -637,7 +784,7 @@
     });
   });
  
-  // Render Visual Panels
+  // Render Diagrams & Charts
   assetDonut = new Chart(document.getElementById('assetDonut'), {
     type: 'doughnut',
     data: {
@@ -667,7 +814,7 @@
     }
   });
  
-  // Kickstart Execution
+  // Kickstart Application
   recalculateDashboard();
   updateProjector();
 </script>

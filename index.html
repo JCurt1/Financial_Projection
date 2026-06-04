@@ -1,3 +1,14 @@
+Here is the updated, complete code.
+
+To achieve this cleanly, the standard labels (<span class="slider-val">) inside the Wealth Compounding Engine have been replaced with stylized text inputs (<input type="text" class="slider-input">). They look just like your clean text metrics but allow typing.
+
+The JavaScript has been updated with bi-directional syncing:
+
+Moving a slider automatically updates the text input box with the proper formatting ($, %, yrs).
+
+Typing a number into the text box instantly moves the corresponding slider and updates the compounding logic chart in real time.
+
+HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,7 +17,7 @@
 <title>Financial Command Center</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght=300;400;500&family=DM+Mono:wght=400;500&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -234,10 +245,27 @@
 
   .donut-container { height: 200px; margin-top: 20px; position: relative; }
  
-  /* ── Projector sliders ── */
+  /* ── Projector sliders & manual inputs ── */
   .slider-group { margin-bottom: 16px; }
   .slider-label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; }
   .slider-val { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; color: var(--text-primary); }
+  
+  .slider-input {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    text-align: right;
+    outline: none;
+    width: 100px;
+    padding: 0 2px;
+  }
+  .slider-input:focus {
+    border-bottom-color: var(--blue);
+  }
   
   input[type=range] {
     -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
@@ -389,7 +417,7 @@
  
     <div class="panel">
       <p class="section-label">Financial Health Diagnostics</p>
-      
+       
       <div class="slider-group" style="margin-top: 10px; margin-bottom: 24px;">
         <div class="slider-label">Estimated Monthly Household Expenses <span class="slider-val" id="lbl-expenses">$5,000/mo</span></div>
         <input type="range" min="1500" max="15000" step="100" value="5000" id="sl-expenses" />
@@ -428,19 +456,31 @@
       <p class="section-label">Wealth Compounding Engine</p>
  
       <div class="slider-group">
-        <div class="slider-label">Starting Investment Capital <span class="slider-val" id="lbl-balance">$0</span></div>
+        <div class="slider-label">
+          Starting Investment Capital 
+          <input type="text" class="slider-input" id="txt-balance" value="$0" />
+        </div>
         <input type="range" min="0" max="5000000" step="500" value="0" id="sl-balance" />
       </div>
       <div class="slider-group">
-        <div class="slider-label">Monthly Investment <span class="slider-val" id="lbl-contrib">$1,000/mo</span></div>
+        <div class="slider-label">
+          Monthly Investment 
+          <input type="text" class="slider-input" id="txt-contrib" value="$1,000/mo" />
+        </div>
         <input type="range" min="0" max="15000" step="50" value="1000" id="sl-contrib" />
       </div>
       <div class="slider-group">
-        <div class="slider-label">Expected Annual Portfolio Return <span class="slider-val" id="lbl-rate">7%</span></div>
+        <div class="slider-label">
+          Expected Annual Portfolio Return 
+          <input type="text" class="slider-input" id="txt-rate" value="7%" />
+        </div>
         <input type="range" min="0" max="15" step="0.1" value="7" id="sl-rate" />
       </div>
       <div class="slider-group">
-        <div class="slider-label">Timeline Horizon <span class="slider-val" id="lbl-years">25 yrs</span></div>
+        <div class="slider-label">
+          Timeline Horizon 
+          <input type="text" class="slider-input" id="txt-years" value="25 yrs" />
+        </div>
         <input type="range" min="1" max="45" step="1" value="25" id="sl-years" />
       </div>
  
@@ -545,16 +585,27 @@
   }
   
   let growthChart;
+  
+  // Update UI Elements based on Slider State
   function updateProjector() {
     const pv = parseFloat(document.getElementById('sl-balance').value);
     const pmt = parseFloat(document.getElementById('sl-contrib').value);
     const r = parseFloat(document.getElementById('sl-rate').value) / 100;
     const years = parseInt(document.getElementById('sl-years').value);
  
-    document.getElementById('lbl-balance').textContent = fmt(pv);
-    document.getElementById('lbl-contrib').textContent = '$' + Math.round(pmt).toLocaleString() + '/mo';
-    document.getElementById('lbl-rate').textContent = (r * 100).toFixed(1) + '%';
-    document.getElementById('lbl-years').textContent = years + ' yrs';
+    // Format text inputs if they aren't actively being typed into
+    if (document.activeElement !== document.getElementById('txt-balance')) {
+      document.getElementById('txt-balance').value = fmt(pv);
+    }
+    if (document.activeElement !== document.getElementById('txt-contrib')) {
+      document.getElementById('txt-contrib').value = '$' + Math.round(pmt).toLocaleString() + '/mo';
+    }
+    if (document.activeElement !== document.getElementById('txt-rate')) {
+      document.getElementById('txt-rate').value = (r * 100).toFixed(1) + '%';
+    }
+    if (document.activeElement !== document.getElementById('txt-years')) {
+      document.getElementById('txt-years').value = years + ' yrs';
+    }
  
     const fv = calcFV(pv, pmt, r, years);
     const standardTotal = pv + pmt * 12 * years;
@@ -577,8 +628,43 @@
     }
   }
  
+  // Bi-directional Bindings: Slider Inputs
   ['sl-balance', 'sl-contrib', 'sl-rate', 'sl-years'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateProjector);
+  });
+  
+  // Bi-directional Bindings: Manual Text Input Configurations
+  const textBindings = [
+    { txtId: 'txt-balance', slId: 'sl-balance', clean: val => parseVal(val) },
+    { txtId: 'txt-contrib', slId: 'sl-contrib', clean: val => parseVal(val) },
+    { txtId: 'txt-rate',    slId: 'sl-rate',    clean: val => parseVal(val) },
+    { txtId: 'txt-years',   slId: 'sl-years',   clean: val => parseInt(val.replace(/[^0-9]/g, '')) || 1 }
+  ];
+
+  textBindings.forEach(binding => {
+    const txtElement = document.getElementById(binding.txtId);
+    const slElement = document.getElementById(binding.slId);
+
+    txtElement.addEventListener('focus', () => {
+      // Strip formatting characters to make manual editing easy
+      txtElement.value = txtElement.value.replace(/[$,\/mo\syrs%]/g, '');
+    });
+
+    txtElement.addEventListener('input', () => {
+      let cleaned = binding.clean(txtElement.value);
+      
+      // Enforce slider min/max limits
+      if (cleaned > parseFloat(slElement.max)) cleaned = parseFloat(slElement.max);
+      if (cleaned < parseFloat(slElement.min)) cleaned = parseFloat(slElement.min);
+      
+      slElement.value = cleaned;
+      updateProjector();
+    });
+
+    txtElement.addEventListener('blur', () => {
+      // Reapply visual cosmetics on focus out
+      updateProjector();
+    });
   });
  
   // Render Visual Panels

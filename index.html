@@ -129,6 +129,7 @@
   .nw-label { font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
   .nw-value { font-size: 30px; font-weight: 300; font-family: 'DM Mono', monospace; margin-top: 4px; }
   .nw-value.green { color: #10b981; }
+  .nw-value.red { color: #f87171; }
   .nw-subtext { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
  
   /* ── Asset/Liability cards ── */
@@ -345,7 +346,6 @@
   <h1 class="page-title">Financial Command Center</h1>
   <p class="page-subtitle">Track your true net worth, debt burn-down, and emergency readiness in real time.</p>
  
-  <!-- True Net Worth Status Bar -->
   <div class="networth-bar">
     <div class="nw-item">
       <div class="nw-label">True Net Worth</div>
@@ -364,7 +364,6 @@
     </div>
   </div>
  
-  <!-- Household Balance Sheet Asset Cards -->
   <p class="section-label">Household Balance Sheet — Click values to edit (Age 30 National Medians)</p>
   <div class="cards-grid" id="cards">
  
@@ -423,7 +422,7 @@
       <div class="card-label">Credit Cards &amp; Consumer Loans</div>
       <div class="card-input-row">
         <span class="card-prefix">$</span>
-        <input class="card-input" type="text" value="0" />
+        <input class="card-input" type="text" value="17,000" />
       </div>
       <div class="card-sub">Cards, auto loans, student loans</div>
     </div>
@@ -442,7 +441,6 @@
  
   </div>
 
-  <!-- Smart Cash Flow Optimization Section -->
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
     <div class="income-grid">
@@ -486,7 +484,6 @@
  
   <div class="two-col">
  
-    <!-- Left Hand: Health & Allocation Diagnostics -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Financial Health Diagnostics</p>
        
@@ -535,7 +532,6 @@
       </div>
     </div>
  
-    <!-- Right Hand: Yield Estimations -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Wealth Compounding Engine</p>
  
@@ -697,7 +693,14 @@
     const totalLiabilities = v.consumerDebt + v.mortgage;
     const trueNetWorth = totalAssets - totalLiabilities;
 
-    document.getElementById('networth-display').textContent = fmt(trueNetWorth);
+    const nwDisplay = document.getElementById('networth-display');
+    nwDisplay.textContent = fmt(trueNetWorth);
+    if (trueNetWorth < 0) {
+      nwDisplay.className = "nw-value red";
+    } else {
+      nwDisplay.className = "nw-value green";
+    }
+    
     document.getElementById('assets-display').textContent = fmt(totalAssets);
     document.getElementById('liabilities-display').textContent = fmt(totalLiabilities);
 

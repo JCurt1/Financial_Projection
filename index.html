@@ -345,7 +345,6 @@
   <h1 class="page-title">Financial Command Center</h1>
   <p class="page-subtitle">Track your true net worth, debt burn-down, and emergency readiness in real time.</p>
  
-  <!-- True Net Worth Status Bar -->
   <div class="networth-bar">
     <div class="nw-item">
       <div class="nw-label">True Net Worth</div>
@@ -364,7 +363,6 @@
     </div>
   </div>
  
-  <!-- Household Balance Sheet Asset Cards -->
   <p class="section-label">Household Balance Sheet — Click values to edit</p>
   <div class="cards-grid" id="cards">
  
@@ -442,7 +440,6 @@
  
   </div>
 
-  <!-- Smart Cash Flow Optimization Section -->
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
     <div class="income-grid">
@@ -486,13 +483,12 @@
  
   <div class="two-col">
  
-    <!-- Left Hand: Health & Allocation Diagnostics -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Financial Health Diagnostics</p>
        
       <div class="slider-group" style="margin-top: 10px; margin-bottom: 24px;">
         <div class="slider-label">Estimated Monthly Household Expenses <span class="slider-val" id="lbl-expenses">$5,000/mo</span></div>
-        <input type="range" min="1500" max="15000" step="100" value="5000" id="sl-expenses" />
+        <input type="range" min="0" max="25000" step="1" value="5000" id="sl-expenses" />
       </div>
 
       <div class="metric-row">
@@ -532,7 +528,6 @@
       </div>
     </div>
  
-    <!-- Right Hand: Yield Estimations -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Wealth Compounding Engine</p>
  
@@ -541,7 +536,7 @@
           Starting Investment Capital 
           <input type="text" class="slider-input" id="txt-balance" value="$0" />
         </div>
-        <input type="range" min="0" max="5000000" step="500" value="0" id="sl-balance" />
+        <input type="range" min="0" max="5000000" step="1" value="0" id="sl-balance" />
       </div>
       <div class="slider-group">
         <div class="slider-label">
@@ -658,7 +653,7 @@
   function recalculateDashboard() {
     const v = getDashboardValues();
     const monthlyExpenses = parseFloat(document.getElementById('sl-expenses').value);
-    document.getElementById('lbl-expenses').textContent = '$' + monthlyExpenses.toLocaleString() + '/mo';
+    document.getElementById('lbl-expenses').textContent = '$' + Math.round(monthlyExpenses).toLocaleString() + '/mo';
 
     // ── Progressive Tax Calculator Logic ──
     const grossAnnual = parseVal(document.getElementById('in-gross').value);

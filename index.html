@@ -271,13 +271,48 @@
   .diag-header-row {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
     margin-bottom: 16px;
   }
   .diag-headline { font-size: 15px; font-weight: 500; color: var(--text-primary); }
+  
+  /* ── Inline Editable Rate Box ── */
+  .diag-rate-wrap {
+    display: flex;
+    align-items: center;
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    height: 28px;
+  }
+  .diag-rate-wrap label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-right: 6px;
+  }
+  .diag-rate-wrap input {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text-primary);
+    width: 32px;
+    font-weight: 500;
+    text-align: right;
+  }
+  .diag-rate-wrap span {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: 1px;
+  }
+
   .diag-metrics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 12px;
   }
   .diag-metric-box {
@@ -520,7 +555,11 @@
     <div class="diag-panel debt-theme" id="debt-burn-panel">
       <div class="diag-header-row">
         <span class="diag-headline">🔥 High-Priority Debt Burn-Down</span>
-        <span class="cf-label" style="color: var(--text-muted); font-size: 10px;">Assumes 12% APR</span>
+        <div class="diag-rate-wrap">
+          <label for="debt-apr-input">APR:</label>
+          <input type="text" id="debt-apr-input" value="12" />
+          <span>%</span>
+        </div>
       </div>
       <div class="diag-metrics-grid">
         <div class="diag-metric-box">
@@ -803,6 +842,9 @@
     const progressPct = fiTarget > 0 ? Math.max(0, (trueNetWorth / fiTarget) * 100) : 0;
     fiProgressElement.textContent = progressPct.toFixed(1) + '%';
 
+    // Extract User Defined Debt APR %
+    const userDebtApr = parseVal(document.getElementById('debt-apr-input').value) / 100;
+
     if (v.consumerDebt > 0) {
       debtPanel.style.display = 'block';
     } else {
@@ -810,7 +852,6 @@
     }
 
     if (netSurplus <= 0) {
-      // Deficit/Stalled Handling
       freeDateEl.textContent = 'Stalled';
       freeDateEl.style.color = 'var(--red)';
       freeMonthsEl.textContent = '∞';
@@ -825,18 +866,17 @@
       let currentCash = v.cash;
       let currentInvestments = v.retirement + v.brokerage + (v.homeValue - v.mortgage); 
       
-      const rDebtMonthly = 0.12 / 12;
-      const rFiMonthly = 0.07 / 12; // Standard inflation-adjusted expected compounding yield
+      const rDebtMonthly = userDebtApr / 12;
+      const rFiMonthly = 0.07 / 12; 
       
       let totalMonthsElapsed = 0;
       let totalInterestPaid = 0;
       let targetEmergencyFund = monthlyExpenses * 6;
       
       let debtFreedomMonthCount = null;
-      const maxSimulationLimit = 600; // 50-year security roof
+      const maxSimulationLimit = 600; 
 
       while (totalMonthsElapsed < maxSimulationLimit) {
-        // Stop condition: Net Wealth hits total required FI target figure
         let dynamicNetWorth = (currentCash + currentInvestments) - currentDebt;
         if (dynamicNetWorth >= fiTarget && currentDebt <= 0 && currentCash >= targetEmergencyFund) {
           break;
@@ -845,17 +885,23 @@
         // Tier 1: Pay down high priority debt
         if (currentDebt > 0) {
           const interestAccrued = currentDebt * rDebtMonthly;
+          
+          // Safety guard if interest outpaces net monthly savings surplus
+          if (interestAccrued >= netSurplus && rDebtMonthly > 0) {
+            totalMonthsElapsed = maxSimulationLimit;
+            totalInterestPaid = Infinity;
+            break;
+          }
+
           totalInterestPaid += interestAccrued;
           currentDebt = (currentDebt + interestAccrued) - netSurplus;
           
           if (currentDebt <= 0) {
-            // Absorb remaining overflow remainder cash directly into next tiered bucket
             const overflow = Math.abs(currentDebt);
             currentDebt = 0;
             currentCash += overflow;
           }
           
-          // Let investment baseline continue compounding independently in the background
           currentInvestments *= (1 + rFiMonthly);
           totalMonthsElapsed++;
           
@@ -885,7 +931,16 @@
       }
 
       // Update Phase 1 Metrics (Debt UI)
-      if (v.consumerDebt > 0 && debtFreedomMonthCount !== null) {
+      if (totalInterestPaid === Infinity) {
+        freeDateEl.textContent = 'Trapped';
+        freeDateEl.style.color = 'var(--red)';
+        freeMonthsEl.textContent = '∞';
+        totalInterestEl.textContent = 'Interest Loop';
+        totalInterestEl.style.color = 'var(--red)';
+        
+        fiFreedomDateElement.textContent = 'Never';
+        fiFreedomDateElement.style.color = 'var(--red)';
+      } else if (v.consumerDebt > 0 && debtFreedomMonthCount !== null) {
         const debtTargetDate = new Date();
         debtTargetDate.setMonth(debtTargetDate.getMonth() + debtFreedomMonthCount);
         freeDateEl.textContent = debtTargetDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
@@ -901,10 +956,10 @@
       }
 
       // Update Phase 3 Metrics (FI UI Target)
-      if (totalMonthsElapsed >= maxSimulationLimit) {
+      if (totalMonthsElapsed >= maxSimulationLimit && totalInterestPaid !== Infinity) {
         fiFreedomDateElement.textContent = '25+ Years';
         fiFreedomDateElement.style.color = 'var(--amber)';
-      } else {
+      } else if (totalInterestPaid !== Infinity) {
         const fiTargetCalendarDate = new Date();
         fiTargetCalendarDate.setMonth(fiTargetCalendarDate.getMonth() + totalMonthsElapsed);
         
@@ -982,6 +1037,17 @@
       inp.value = Math.round(parseVal(inp.value)).toLocaleString();
       recalculateDashboard();
     });
+  });
+
+  // APR Input Listeners
+  const aprInput = document.getElementById('debt-apr-input');
+  aprInput.addEventListener('input', recalculateDashboard);
+  aprInput.addEventListener('blur', () => {
+    let cleanApr = parseVal(aprInput.value);
+    if(cleanApr < 0) cleanApr = 0;
+    if(cleanApr > 100) cleanApr = 100;
+    aprInput.value = cleanApr || 0;
+    recalculateDashboard();
   });
 
   // Expenses Bi-directional Event Listeners

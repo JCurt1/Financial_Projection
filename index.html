@@ -541,11 +541,11 @@
     <div class="diag-panel fi-theme">
       <div class="diag-header-row">
         <span class="diag-headline">🚀 Financial Independence Checkpoint</span>
-        <span class="cf-label" style="color: var(--text-muted); font-size: 10px;">25x Rule Track</span>
+        <span class="cf-label" style="color: var(--text-muted); font-size: 10px;">Waterfall Forecast Target</span>
       </div>
       <div class="diag-metrics-grid">
         <div class="diag-metric-box">
-          <span class="diag-box-title">FI Number (25x)</span>
+          <span class="diag-box-title">FI Target (25x)</span>
           <div class="diag-box-value" style="color: var(--blue);" id="fi-number-target">—</div>
         </div>
         <div class="diag-metric-box">
@@ -553,8 +553,8 @@
           <div class="diag-box-value" id="fi-progress-pct">—</div>
         </div>
         <div class="diag-metric-box">
-          <span class="diag-box-title">Coast FI Status</span>
-          <div class="diag-box-value" id="coast-fi-status">—</div>
+          <span class="diag-box-title">FI Freedom Date</span>
+          <div class="diag-box-value" style="color: var(--purple);" id="fi-freedom-date">—</div>
         </div>
       </div>
     </div>
@@ -786,80 +786,131 @@
     document.getElementById('assets-display').textContent = fmt(totalAssets);
     document.getElementById('liabilities-display').textContent = fmt(totalLiabilities);
 
-    // ── Dynamic Debt Burn-Down Logic ──
+    // ── Dynamic Waterfall Milestone Simulation Engine ──
     const debtPanel = document.getElementById('debt-burn-panel');
+    const freeDateEl = document.getElementById('debt-free-date');
+    const freeMonthsEl = document.getElementById('debt-free-months');
+    const totalInterestEl = document.getElementById('debt-total-interest');
+    
+    const fiTargetElement = document.getElementById('fi-number-target');
+    const fiProgressElement = document.getElementById('fi-progress-pct');
+    const fiFreedomDateElement = document.getElementById('fi-freedom-date');
+
+    const annualExpenses = monthlyExpenses * 12;
+    const fiTarget = annualExpenses * 25;
+    fiTargetElement.textContent = fiTarget > 0 ? fmt(fiTarget) : '$0';
+
+    const progressPct = fiTarget > 0 ? Math.max(0, (trueNetWorth / fiTarget) * 100) : 0;
+    fiProgressElement.textContent = progressPct.toFixed(1) + '%';
+
     if (v.consumerDebt > 0) {
-      debtPanel.style.visibility = 'visible';
       debtPanel.style.display = 'block';
-      const freeDateEl = document.getElementById('debt-free-date');
-      const freeMonthsEl = document.getElementById('debt-free-months');
-      const totalInterestEl = document.getElementById('debt-total-interest');
-
-      if (netSurplus <= 0) {
-        freeDateEl.textContent = 'Stalled';
-        freeDateEl.style.color = 'var(--red)';
-        freeMonthsEl.textContent = '∞ (Deficit)';
-        totalInterestEl.textContent = 'Compounding';
-        totalInterestEl.style.color = 'var(--red)';
-      } else {
-        let balance = v.consumerDebt;
-        const rMonthly = 0.12 / 12;
-        let months = 0;
-        let totalInterestPaid = 0;
-        const maxMonths = 360;
-
-        while (balance > 0 && months < maxMonths) {
-          const interestAccrued = balance * rMonthly;
-          totalInterestPaid += interestAccrued;
-          balance = (balance + interestAccrued) - netSurplus;
-          months++;
-        }
-
-        if (months >= maxMonths) {
-          freeDateEl.textContent = 'Treading Water';
-          freeDateEl.style.color = 'var(--amber)';
-          freeMonthsEl.textContent = '25+ Years';
-          totalInterestEl.textContent = 'High Friction';
-        } else {
-          const targetDate = new Date();
-          targetDate.setMonth(targetDate.getMonth() + months);
-          
-          freeDateEl.textContent = targetDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-          freeDateEl.style.color = 'var(--green)';
-          freeMonthsEl.textContent = months + ' mos';
-          totalInterestEl.textContent = fmt(totalInterestPaid);
-          totalInterestEl.style.color = 'var(--amber)';
-        }
-      }
     } else {
-      // Keep alignment space clear but hidden cleanly if 0 debt
       debtPanel.style.display = 'none';
     }
 
-    // ── Dynamic FI / Coast FI Engine ──
-    const annualExpenses = monthlyExpenses * 12;
-    const fiTarget = annualExpenses * 25;
-    document.getElementById('fi-number-target').textContent = fiTarget > 0 ? fmt(fiTarget) : '$0';
-
-    const progressPct = fiTarget > 0 ? Math.max(0, (trueNetWorth / fiTarget) * 100) : 0;
-    document.getElementById('fi-progress-pct').textContent = progressPct.toFixed(1) + '%';
-
-    // Coast FI Evaluation (Current Age 30 -> Age 65 = 35 years compounding horizon)
-    const yearsToRetire = 35;
-    const realGrowthRate = 0.07; // Core standard tracking expectation (inflation adjusted)
-    const projectedCoastValue = v.retirement * Math.pow(1 + realGrowthRate, yearsToRetire);
-    
-    const coastStatusEl = document.getElementById('coast-fi-status');
-    if (fiTarget === 0) {
-      coastStatusEl.textContent = 'No Lifestyle Cost';
-      coastStatusEl.style.color = 'var(--text-secondary)';
-    } else if (projectedCoastValue >= fiTarget) {
-      coastStatusEl.textContent = 'On Track';
-      coastStatusEl.style.color = 'var(--green)';
+    if (netSurplus <= 0) {
+      // Deficit/Stalled Handling
+      freeDateEl.textContent = 'Stalled';
+      freeDateEl.style.color = 'var(--red)';
+      freeMonthsEl.textContent = '∞';
+      totalInterestEl.textContent = 'Compounding';
+      totalInterestEl.style.color = 'var(--red)';
+      
+      fiFreedomDateElement.textContent = 'Stalled';
+      fiFreedomDateElement.style.color = 'var(--red)';
     } else {
-      const shortcutGap = fiTarget - projectedCoastValue;
-      coastStatusEl.textContent = 'Gap: ' + fmt(shortcutGap);
-      coastStatusEl.style.color = 'var(--amber)';
+      // ── RUN WATERFALL LOOPER ENGINE ──
+      let currentDebt = v.consumerDebt;
+      let currentCash = v.cash;
+      let currentInvestments = v.retirement + v.brokerage + (v.homeValue - v.mortgage); 
+      
+      const rDebtMonthly = 0.12 / 12;
+      const rFiMonthly = 0.07 / 12; // Standard inflation-adjusted expected compounding yield
+      
+      let totalMonthsElapsed = 0;
+      let totalInterestPaid = 0;
+      let targetEmergencyFund = monthlyExpenses * 6;
+      
+      let debtFreedomMonthCount = null;
+      const maxSimulationLimit = 600; // 50-year security roof
+
+      while (totalMonthsElapsed < maxSimulationLimit) {
+        // Stop condition: Net Wealth hits total required FI target figure
+        let dynamicNetWorth = (currentCash + currentInvestments) - currentDebt;
+        if (dynamicNetWorth >= fiTarget && currentDebt <= 0 && currentCash >= targetEmergencyFund) {
+          break;
+        }
+
+        // Tier 1: Pay down high priority debt
+        if (currentDebt > 0) {
+          const interestAccrued = currentDebt * rDebtMonthly;
+          totalInterestPaid += interestAccrued;
+          currentDebt = (currentDebt + interestAccrued) - netSurplus;
+          
+          if (currentDebt <= 0) {
+            // Absorb remaining overflow remainder cash directly into next tiered bucket
+            const overflow = Math.abs(currentDebt);
+            currentDebt = 0;
+            currentCash += overflow;
+          }
+          
+          // Let investment baseline continue compounding independently in the background
+          currentInvestments *= (1 + rFiMonthly);
+          totalMonthsElapsed++;
+          
+          if (currentDebt === 0) {
+            debtFreedomMonthCount = totalMonthsElapsed;
+          }
+          continue;
+        }
+
+        // Tier 2: Refuel Emergency Capital Stack to solid 6 months
+        if (currentCash < targetEmergencyFund) {
+          currentCash += netSurplus;
+          if (currentCash > targetEmergencyFund) {
+            const overflow = currentCash - targetEmergencyFund;
+            currentCash = targetEmergencyFund;
+            currentInvestments += overflow;
+          }
+          
+          currentInvestments *= (1 + rFiMonthly);
+          totalMonthsElapsed++;
+          continue;
+        }
+
+        // Tier 3: Fuel Financial Independence Box with compound growth acceleration
+        currentInvestments = (currentInvestments * (1 + rFiMonthly)) + netSurplus;
+        totalMonthsElapsed++;
+      }
+
+      // Update Phase 1 Metrics (Debt UI)
+      if (v.consumerDebt > 0 && debtFreedomMonthCount !== null) {
+        const debtTargetDate = new Date();
+        debtTargetDate.setMonth(debtTargetDate.getMonth() + debtFreedomMonthCount);
+        freeDateEl.textContent = debtTargetDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        freeDateEl.style.color = 'var(--green)';
+        freeMonthsEl.textContent = debtFreedomMonthCount + ' mos';
+        totalInterestEl.textContent = fmt(totalInterestPaid);
+        totalInterestEl.style.color = 'var(--amber)';
+      } else {
+        freeDateEl.textContent = 'Cleared';
+        freeDateEl.style.color = 'var(--green)';
+        freeMonthsEl.textContent = '0 mos';
+        totalInterestEl.textContent = '$0';
+      }
+
+      // Update Phase 3 Metrics (FI UI Target)
+      if (totalMonthsElapsed >= maxSimulationLimit) {
+        fiFreedomDateElement.textContent = '25+ Years';
+        fiFreedomDateElement.style.color = 'var(--amber)';
+      } else {
+        const fiTargetCalendarDate = new Date();
+        fiTargetCalendarDate.setMonth(fiTargetCalendarDate.getMonth() + totalMonthsElapsed);
+        
+        fiFreedomDateElement.textContent = fiTargetCalendarDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        fiFreedomDateElement.style.color = 'var(--purple)';
+      }
     }
 
     // Metric 1: Emergency Fund Buffer

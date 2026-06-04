@@ -112,7 +112,6 @@
     font-family: 'DM Mono', monospace;
   }
   
-  /* Theme Switcher Button */
   .theme-btn {
     background: var(--surface-2);
     border: 1px solid var(--border);
@@ -230,7 +229,7 @@
   .card-input:focus { border-bottom-color: var(--blue); }
   .card-sub { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
 
-  /* ── Full Width & Panels Layout ── */
+  /* ── Full Width Panels ── */
   .full-panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -341,21 +340,15 @@
     box-shadow: var(--shadow-sm);
     transition: all 0.3s;
   }
-  .timeline-node.active .timeline-dot {
-    background: var(--surface);
-  }
+  .timeline-node.active .timeline-dot { background: var(--surface); }
   .timeline-node.active.phase-debt .timeline-dot { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 0 4px var(--amber-light); }
   .timeline-node.active.phase-runway .timeline-dot { border-color: var(--blue); color: var(--blue); box-shadow: 0 0 0 4px var(--blue-light); }
   .timeline-node.active.phase-coast .timeline-dot { border-color: var(--purple); color: var(--purple); box-shadow: 0 0 0 4px var(--purple-light); }
   .timeline-node.active.phase-fi .timeline-dot { border-color: var(--green); color: var(--green); box-shadow: 0 0 0 4px var(--green-light); }
   
   .timeline-node.complete .timeline-dot {
-    background: var(--green);
-    border-color: var(--green);
-    color: #fff !important;
-    box-shadow: none;
+    background: var(--green); border-color: var(--green); color: #fff !important; box-shadow: none;
   }
-
   .timeline-meta { margin-top: 10px; }
   .timeline-title { font-size: 13px; font-weight: 500; color: var(--text-primary); }
   .timeline-status { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; color: var(--text-secondary); }
@@ -389,7 +382,6 @@
   }
   .diag-headline { font-size: 15px; font-weight: 500; color: var(--text-primary); }
   
-  /* ── Inline Editable Rate Box ── */
   .diag-rate-wrap {
     display: flex;
     align-items: center;
@@ -399,40 +391,20 @@
     height: 28px;
   }
   .diag-rate-wrap label {
-    font-size: 10px;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-    font-weight: 500;
-    margin-right: 6px;
+    font-size: 10px; text-transform: uppercase; color: var(--text-secondary); font-weight: 500; margin-right: 6px;
   }
   .diag-rate-wrap input {
-    background: transparent;
-    border: none;
-    outline: none;
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    color: var(--text-primary);
-    width: 32px;
-    font-weight: 500;
-    text-align: right;
+    background: transparent; border: none; outline: none; font-family: 'DM Mono', monospace;
+    font-size: 12px; color: var(--text-primary); width: 32px; font-weight: 500; text-align: right;
   }
-  .diag-rate-wrap span {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-left: 1px;
-  }
+  .diag-rate-wrap span { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-secondary); margin-left: 1px; }
 
   .diag-metrics-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 12px;
   }
-  .diag-metric-box {
-    background: var(--surface-2);
-    padding: 12px;
-    border-radius: var(--radius-md);
-  }
+  .diag-metric-box { background: var(--surface-2); padding: 12px; border-radius: var(--radius-md); }
   .diag-box-title { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; font-weight: 500; letter-spacing: 0.03em; }
   .diag-box-value { font-size: 18px; font-weight: 500; font-family: 'DM Mono', monospace; margin-top: 2px; }
  
@@ -469,24 +441,15 @@
   .metric-value.good { color: var(--green); }
   .metric-value.warning { color: var(--amber); }
 
-  .donut-container { height: 200px; margin-top: 20px; position: relative; }
+  .donut-container { height: 180px; margin-top: 15px; position: relative; }
  
   /* ── Projector sliders ── */
   .slider-group { margin-bottom: 16px; }
   .slider-label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; }
   
   .slider-input {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-primary);
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid transparent;
-    text-align: right;
-    outline: none;
-    width: 100px;
-    padding: 0 2px;
+    font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; color: var(--text-primary);
+    background: transparent; border: none; border-bottom: 1px solid transparent; text-align: right; outline: none; width: 100px; padding: 0 2px;
   }
   .slider-input:focus { border-bottom-color: var(--blue); }
   
@@ -501,12 +464,12 @@
  
   .fv-result {
     background: var(--surface-2); border-radius: var(--radius-md);
-    padding: 16px; text-align: center; margin: 20px 0;
+    padding: 16px; text-align: center; margin: 16px 0;
   }
   .fv-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-secondary); margin-bottom: 4px; }
   .fv-value { font-size: 32px; font-weight: 400; color: var(--blue); font-family: 'DM Mono', monospace; }
-  .fv-gain { font-size: 12px; color: var(--green); margin-top: 2px; }
-  .growth-wrap { position: relative; height: 150px; }
+  .fv-gain { font-size: 11px; color: var(--green); margin-top: 2px; }
+  .growth-wrap { position: relative; height: 230px; }
  
   .footer-note { font-size: 12px; color: var(--text-secondary); text-align: center; margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
 </style>
@@ -536,7 +499,6 @@
   <h1 class="page-title">Financial Command Center</h1>
   <p class="page-subtitle">Track your true net worth, debt burn-down, and emergency readiness in real time.</p>
  
-  <!-- True Net Worth Status Bar -->
   <div class="networth-bar">
     <div class="nw-item">
       <div class="nw-label">True Net Worth</div>
@@ -555,8 +517,7 @@
     </div>
   </div>
  
-  <!-- Household Balance Sheet Asset Cards -->
-  <p class="section-label">Household Balance Sheet — Click values to edit (Age 30 National Medians)</p>
+  <p class="section-label">Household Balance Sheet — Click values to edit</p>
   <div class="cards-grid" id="cards">
  
     <div class="asset-card asset" data-key="cash">
@@ -633,7 +594,6 @@
  
   </div>
 
-  <!-- Smart Cash Flow Optimization Section -->
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
     <div class="income-grid">
@@ -675,7 +635,6 @@
     </div>
   </div>
 
-  <!-- Milestone Waterfall Tracker Timeline -->
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Milestone Waterfall Tracker</p>
     <div class="timeline-container">
@@ -719,10 +678,8 @@
     </div>
   </div>
   
-  <!-- Diagnostics Section Split: Debt vs Financial Independence -->
   <div class="diagnostics-split">
     
-    <!-- Active Debt Burn-Down Diagnostics Engine -->
     <div class="diag-panel debt-theme" id="debt-burn-panel">
       <div class="diag-header-row">
         <span class="diag-headline">🔥 High-Priority Debt Burn-Down</span>
@@ -748,7 +705,6 @@
       </div>
     </div>
 
-    <!-- Financial Independence & Coast Target Tracker -->
     <div class="diag-panel fi-theme">
       <div class="diag-header-row">
         <span class="diag-headline">🚀 Financial Independence Checkpoint</span>
@@ -774,7 +730,6 @@
  
   <div class="two-col">
  
-    <!-- Left Hand: Health & Allocation Diagnostics -->
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Financial Health Diagnostics</p>
        
@@ -823,41 +778,22 @@
       </div>
     </div>
  
-    <!-- Right Hand: Yield Estimations -->
     <div class="panel">
-      <p class="section-label" style="margin-top: 0;">Wealth Compounding Engine</p>
- 
-      <div class="slider-group">
-        <div class="slider-label">
-          Starting Investment Capital 
-          <input type="text" class="slider-input" id="txt-balance" value="$30,500" />
+      <div class="diag-header-row">
+        <p class="section-label" style="margin-top: 0; margin-bottom: 0;">Tethered Wealth Compounding Engine</p>
+        <div class="diag-rate-wrap">
+          <label for="sl-rate">Market Yield:</label>
+          <input type="text" id="txt-rate" value="7.0" style="width: 24px;" />
+          <span>%</span>
         </div>
-        <input type="range" min="0" max="5000000" step="1" value="30500" id="sl-balance" />
+        <input type="range" min="0" max="15" step="0.1" value="7" id="sl-rate" style="display: none;" />
       </div>
-      <div class="slider-group">
-        <div class="slider-label">
-          Monthly Investment 
-          <input type="text" class="slider-input" id="txt-contrib" value="$400/mo" />
-        </div>
-        <input type="range" min="0" max="15000" step="50" value="400" id="sl-contrib" />
-      </div>
-      <div class="slider-group">
-        <div class="slider-label">
-          Expected Annual Portfolio Return 
-          <input type="text" class="slider-input" id="txt-rate" value="7%" />
-        </div>
-        <input type="range" min="0" max="15" step="0.1" value="7" id="sl-rate" />
-      </div>
-      <div class="slider-group">
-        <div class="slider-label">
-          Timeline Horizon 
-          <input type="text" class="slider-input" id="txt-years" value="25 yrs" />
-        </div>
-        <input type="range" min="1" max="45" step="1" value="25" id="sl-years" />
-      </div>
+      <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; margin-top: 2px;">
+        This engine simulates the next 25 years based on the exact timeline outcomes of your Waterfall loop above.
+      </p>
  
       <div class="fv-result">
-        <div class="fv-label">Projected Future Value</div>
+        <div class="fv-label">Projected 25-Year Liquid Portfolio</div>
         <div class="fv-value" id="fv-display">—</div>
         <div class="fv-gain" id="fv-gain">—</div>
       </div>
@@ -936,22 +872,12 @@
     
     const brackets = {
       single: [
-        { upTo: 11600, rate: 0.10 },
-        { upTo: 47150, rate: 0.12 },
-        { upTo: 100525, rate: 0.22 },
-        { upTo: 191950, rate: 0.24 },
-        { upTo: 243725, rate: 0.32 },
-        { upTo: 609350, rate: 0.35 },
-        { upTo: Infinity, rate: 0.37 }
+        { upTo: 11600, rate: 0.10 }, { upTo: 47150, rate: 0.12 }, { upTo: 100525, rate: 0.22 },
+        { upTo: 191950, rate: 0.24 }, { upTo: 243725, rate: 0.32 }, { upTo: 609350, rate: 0.35 }, { upTo: Infinity, rate: 0.37 }
       ],
       married: [
-        { upTo: 23200, rate: 0.10 },
-        { upTo: 94300, rate: 0.12 },
-        { upTo: 201050, rate: 0.22 },
-        { upTo: 383900, rate: 0.24 },
-        { upTo: 487450, rate: 0.32 },
-        { upTo: 731200, rate: 0.35 },
-        { upTo: Infinity, rate: 0.37 }
+        { upTo: 23200, rate: 0.10 }, { upTo: 94300, rate: 0.12 }, { upTo: 201050, rate: 0.22 },
+        { upTo: 383900, rate: 0.24 }, { upTo: 487450, rate: 0.32 }, { upTo: 731200, rate: 0.35 }, { upTo: Infinity, rate: 0.37 }
       ]
     };
 
@@ -973,14 +899,13 @@
     const ssCap = 168600; 
     const ssTax = Math.min(grossIncome, ssCap) * 0.062;
     const medicareTax = grossIncome * 0.0145;
-    const totalFica = ssTax + medicareTax;
-
-    return incomeTax + totalFica;
+    return incomeTax + ssTax + medicareTax;
   }
  
   let assetDonut;
+  let growthChart;
   
-  // Balance Sheet & Cash Flow Engine
+  // Master Waterfall & Dashboard Calculation Engine
   function recalculateDashboard() {
     const v = getDashboardValues();
     const monthlyExpenses = parseFloat(document.getElementById('sl-expenses').value);
@@ -1031,7 +956,7 @@
     document.getElementById('assets-display').textContent = fmt(totalAssets);
     document.getElementById('liabilities-display').textContent = fmt(totalLiabilities);
 
-    // ── Elements & Timeline Handles ──
+    // ── Milestone System Selectors ──
     const debtPanel = document.getElementById('debt-burn-panel');
     const freeDateEl = document.getElementById('debt-free-date');
     const freeMonthsEl = document.getElementById('debt-free-months');
@@ -1064,31 +989,41 @@
     fiProgressElement.textContent = progressPct.toFixed(1) + '%';
 
     const userDebtApr = parseVal(document.getElementById('debt-apr-input').value) / 100;
+    const expectedReturnRate = parseVal(document.getElementById('txt-rate').value) / 100;
 
     debtPanel.style.display = v.consumerDebt > 0 ? 'block' : 'none';
 
+    // Compounding Engine Dataset Containers
+    let projectionYears = 25;
+    let chartLabels = [];
+    let chartDataPoints = [];
+    
     if (netSurplus <= 0) {
-      freeDateEl.textContent = 'Stalled';
-      freeDateEl.style.color = 'var(--red)';
-      freeMonthsEl.textContent = '∞';
-      totalInterestEl.textContent = 'Compounding';
-      totalInterestEl.style.color = 'var(--red)';
-      fiFreedomDateElement.textContent = 'Stalled';
-      fiFreedomDateElement.style.color = 'var(--red)';
+      freeDateEl.textContent = 'Stalled'; freeDateEl.style.color = 'var(--red)';
+      freeMonthsEl.textContent = '∞'; totalInterestEl.textContent = 'Compounding'; totalInterestEl.style.color = 'var(--red)';
+      fiFreedomDateElement.textContent = 'Stalled'; fiFreedomDateElement.style.color = 'var(--red)';
 
-      // Timeline Deficit States
       [nodeDebt, nodeRunway, nodeCoast, nodeFi].forEach(n => n.classList.remove('active', 'complete'));
       statusDebt.textContent = v.consumerDebt > 0 ? "Stalled" : "Cleared";
       statusRunway.textContent = "Stalled"; statusCoast.textContent = "Stalled"; statusFi.textContent = "Stalled";
       dateDebt.textContent = "—"; dateRunway.textContent = "—"; dateCoast.textContent = "—"; dateFi.textContent = "—";
+      
+      // Plot stagnant separate investment projection if cash flow locked
+      let fallbackInvestments = v.cash + v.retirement + v.brokerage;
+      for (let y = 0; y <= projectionYears; y++) {
+        chartLabels.push(y === 0 ? 'Now' : 'Yr ' + y);
+        chartDataPoints.push(Math.round(fallbackInvestments * Math.pow(1 + expectedReturnRate, y)));
+      }
+      document.getElementById('fv-display').textContent = fmt(chartDataPoints[projectionYears]);
+      document.getElementById('fv-gain').textContent = "Cash flow deficit. Visualizing static historical compounding assets only.";
     } else {
-      // ── RUN WATERFALL LOOPER ENGINE ──
+      // ── RUN WATERFALL LOOPER ENGINE & DATA HARVESTER ──
       let currentDebt = v.consumerDebt;
       let currentCash = v.cash;
-      let currentInvestments = v.retirement + v.brokerage + (v.homeValue - v.mortgage); 
+      let currentLiquidInvestments = v.retirement + v.brokerage; 
       
       const rDebtMonthly = userDebtApr / 12;
-      const rFiMonthly = 0.07 / 12; 
+      const rMarketMonthly = expectedReturnRate / 12; 
       
       let totalMonthsElapsed = 0;
       let totalInterestPaid = 0;
@@ -1099,42 +1034,37 @@
       let coastFiMonthCount = null;
       let fullFiMonthCount = null;
       
-      const maxSimulationLimit = 600; 
+      // Simulation array mapping for 25-year timeline projection
+      let monthByMonthPortfolioLog = [Math.round(currentCash + currentLiquidInvestments)];
 
-      // Pre-evaluation checks
       if (currentCash >= targetEmergencyFund) runwayFundedMonthCount = 0;
 
-      while (totalMonthsElapsed < maxSimulationLimit) {
-        let dynamicNetWorth = (currentCash + currentInvestments) - currentDebt;
+      for (let m = 1; m <= 300; m++) { // Run loop across 25 years (300 months)
+        let dynamicInvestmentsTotal = currentLiquidInvestments + (v.homeValue - v.mortgage);
+        let dynamicNetWorth = (currentCash + dynamicInvestmentsTotal) - currentDebt;
         
-        // Track Coast FI milestone (Investments grow to target naturally by age 65 without contributions)
+        // Track Coast FI milestone
         if (coastFiMonthCount === null && currentDebt <= 0) {
-          let yearsToRetire = 65 - (31 + (totalMonthsElapsed / 12)); // Hard baseline target window
+          let yearsToRetire = 65 - (31 + (m / 12));
           if (yearsToRetire > 0) {
-            let compoundingFutureValue = currentInvestments * Math.pow(1 + 0.07, yearsToRetire);
-            if (compoundingFutureValue >= fiTarget) {
-              coastFiMonthCount = totalMonthsElapsed;
-            }
+            let compoundingFutureValue = dynamicInvestmentsTotal * Math.pow(1 + 0.07, yearsToRetire);
+            if (compoundingFutureValue >= fiTarget) coastFiMonthCount = m;
           } else if (dynamicNetWorth >= fiTarget) {
-            coastFiMonthCount = totalMonthsElapsed;
+            coastFiMonthCount = m;
           }
         }
 
-        if (dynamicNetWorth >= fiTarget && currentDebt <= 0 && currentCash >= targetEmergencyFund) {
-          if (fullFiMonthCount === null) fullFiMonthCount = totalMonthsElapsed;
-          break;
+        if (dynamicNetWorth >= fiTarget && currentDebt <= 0 && currentCash >= targetEmergencyFund && fullFiMonthCount === null) {
+          fullFiMonthCount = m;
         }
 
         // Tier 1: Pay down high priority debt
         if (currentDebt > 0) {
           const interestAccrued = currentDebt * rDebtMonthly;
-          
           if (interestAccrued >= netSurplus && rDebtMonthly > 0) {
-            totalMonthsElapsed = maxSimulationLimit;
             totalInterestPaid = Infinity;
             break;
           }
-
           totalInterestPaid += interestAccrued;
           currentDebt = (currentDebt + interestAccrued) - netSurplus;
           
@@ -1142,38 +1072,50 @@
             const overflow = Math.abs(currentDebt);
             currentDebt = 0;
             currentCash += overflow;
-            debtFreedomMonthCount = totalMonthsElapsed + 1;
+            debtFreedomMonthCount = m;
           }
-          
-          currentInvestments *= (1 + rFiMonthly);
-          totalMonthsElapsed++;
+          currentLiquidInvestments *= (1 + rMarketMonthly);
+          monthByMonthPortfolioLog.push(Math.round(currentCash + currentLiquidInvestments));
           continue;
         }
 
-        // Tier 2: Refuel Emergency Capital Stack to solid 6 months
+        // Tier 2: Refuel Emergency Capital Stack
         if (currentCash < targetEmergencyFund) {
           currentCash += netSurplus;
           if (currentCash >= targetEmergencyFund) {
             const overflow = currentCash - targetEmergencyFund;
             currentCash = targetEmergencyFund;
-            currentInvestments += overflow;
-            runwayFundedMonthCount = totalMonthsElapsed + 1;
+            currentLiquidInvestments += overflow;
+            runwayFundedMonthCount = m;
           }
-          
-          currentInvestments *= (1 + rFiMonthly);
-          totalMonthsElapsed++;
+          currentLiquidInvestments *= (1 + rMarketMonthly);
+          monthByMonthPortfolioLog.push(Math.round(currentCash + currentLiquidInvestments));
           continue;
         }
 
         // Tier 3: Fuel Financial Independence Box with compound growth acceleration
-        currentInvestments = (currentInvestments * (1 + rFiMonthly)) + netSurplus;
-        totalMonthsElapsed++;
+        currentLiquidInvestments = (currentLiquidInvestments * (1 + rMarketMonthly)) + netSurplus;
+        monthByMonthPortfolioLog.push(Math.round(currentCash + currentLiquidInvestments));
+      }
+
+      // ── Process Chart UI Data Mapping ──
+      if (totalInterestPaid !== Infinity) {
+        for (let y = 0; y <= projectionYears; y++) {
+          chartLabels.push(y === 0 ? 'Now' : 'Yr ' + y);
+          let targetMonthIndex = y * 12;
+          chartDataPoints.push(monthByMonthPortfolioLog[targetMonthIndex] || monthByMonthPortfolioLog[monthByMonthPortfolioLog.length - 1]);
+        }
+        let totalPrincipalContributions = (v.cash + v.retirement + v.brokerage) + (netSurplus * Math.max(0, (300 - (debtFreedomMonthCount || 0) - (runwayFundedMonthCount || 0))));
+        let compoundInterestYieldGain = Math.max(0, chartDataPoints[projectionYears] - totalPrincipalContributions);
+        
+        document.getElementById('fv-display').textContent = fmt(chartDataPoints[projectionYears]);
+        document.getElementById('fv-gain').textContent = '+' + fmt(compoundInterestYieldGain) + ' generated across your unique waterfall timeline';
       }
 
       // Reset Node styles
       [nodeDebt, nodeRunway, nodeCoast, nodeFi].forEach(n => n.classList.remove('active', 'complete'));
 
-      // ── Process Phase 1: High-Priority Debt ──
+      // ── Process Phase 1 Nodes ──
       if (totalInterestPaid === Infinity) {
         freeDateEl.textContent = 'Trapped'; freeDateEl.style.color = 'var(--red)';
         freeMonthsEl.textContent = '∞'; totalInterestEl.textContent = 'Interest Loop';
@@ -1200,7 +1142,7 @@
         dateDebt.textContent = "Done";
       }
 
-      // ── Process Phase 2: Emergency Runway ──
+      // ── Process Phase 2 Nodes ──
       if (totalInterestPaid !== Infinity) {
         if (v.consumerDebt > 0) {
           statusRunway.textContent = "Queued";
@@ -1218,7 +1160,7 @@
         }
       }
 
-      // ── Process Phase 3: Coast FI ──
+      // ── Process Phase 3 Nodes ──
       if (totalInterestPaid !== Infinity) {
         if (coastFiMonthCount !== null) {
           const coastDate = new Date(); coastDate.setMonth(coastDate.getMonth() + coastFiMonthCount);
@@ -1236,36 +1178,37 @@
             statusCoast.textContent = "Queued";
           }
         } else {
-          statusCoast.textContent = "Locked";
-          dateCoast.textContent = "—";
+          statusCoast.textContent = "Locked"; dateCoast.textContent = "—";
         }
       }
 
-      // ── Process Phase 4: Full Financial Independence ──
-      if (totalMonthsElapsed >= maxSimulationLimit && totalInterestPaid !== Infinity) {
-        fiFreedomDateElement.textContent = '25+ Years';
-        fiFreedomDateElement.style.color = 'var(--amber)';
-        statusFi.textContent = "Accumulating";
-        dateFi.textContent = "25+ Yrs";
-        if (v.consumerDebt === 0 && v.cash >= targetEmergencyFund && statusCoast.textContent !== "Compounding") {
-          nodeFi.classList.add('active');
-        }
-      } else if (totalInterestPaid !== Infinity && fullFiMonthCount !== null) {
-        const fiDate = new Date(); fiDate.setMonth(fiDate.getMonth() + fullFiMonthCount);
-        const fiStr = fiDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        
-        fiFreedomDateElement.textContent = fiStr;
-        fiFreedomDateElement.style.color = 'var(--purple)';
-        dateFi.textContent = fiStr;
-        
-        if (fullFiMonthCount === 0) {
-          nodeFi.classList.add('complete');
-          statusFi.textContent = "Independent";
-        } else if (v.consumerDebt === 0 && v.cash >= targetEmergencyFund && coastFiMonthCount === 0) {
-          nodeFi.classList.add('active');
-          statusFi.textContent = "Accelerating";
+      // ── Process Phase 4 Nodes ──
+      if (totalInterestPaid !== Infinity) {
+        if (fullFiMonthCount === null) {
+          fiFreedomDateElement.textContent = '25+ Years';
+          fiFreedomDateElement.style.color = 'var(--amber)';
+          statusFi.textContent = "Accumulating";
+          dateFi.textContent = "25+ Yrs";
+          if (v.consumerDebt === 0 && v.cash >= targetEmergencyFund && statusCoast.textContent !== "Compounding") {
+            nodeFi.classList.add('active');
+          }
         } else {
-          statusFi.textContent = "Queued";
+          const fiDate = new Date(); fiDate.setMonth(fiDate.getMonth() + fullFiMonthCount);
+          const fiStr = fiDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          
+          fiFreedomDateElement.textContent = fiStr;
+          fiFreedomDateElement.style.color = 'var(--purple)';
+          dateFi.textContent = fiStr;
+          
+          if (fullFiMonthCount === 0) {
+            nodeFi.classList.add('complete');
+            statusFi.textContent = "Independent";
+          } else if (v.consumerDebt === 0 && v.cash >= targetEmergencyFund && coastFiMonthCount === 0) {
+            nodeFi.classList.add('active');
+            statusFi.textContent = "Accelerating";
+          } else {
+            statusFi.textContent = "Queued";
+          }
         }
       }
     }
@@ -1317,13 +1260,21 @@
       else { ratioElement.className = "metric-value"; ratioElement.style.color = "var(--red)"; }
     }
 
+    // Sync Donut Layout
     if (assetDonut) {
       assetDonut.data.datasets[0].data = [v.cash, v.retirement, v.homeValue, v.brokerage];
       assetDonut.update('none');
     }
+
+    // Update Line Graph Visual points natively
+    if (growthChart) {
+      growthChart.data.labels = chartLabels;
+      growthChart.data.datasets[0].data = chartDataPoints;
+      growthChart.update('none');
+    }
   }
  
-  // Balance Sheet Input Listeners
+  // Balance Sheet Input Event Registration
   document.querySelectorAll('#cards .card-input').forEach(inp => {
     inp.addEventListener('input', recalculateDashboard);
     inp.addEventListener('focus', () => { 
@@ -1336,26 +1287,36 @@
     });
   });
 
-  // APR Input Listeners
+  // APR Input Registration
   const aprInput = document.getElementById('debt-apr-input');
   aprInput.addEventListener('input', recalculateDashboard);
   aprInput.addEventListener('blur', () => {
     let cleanApr = parseVal(aprInput.value);
-    if(cleanApr < 0) cleanApr = 0;
-    if(cleanApr > 100) cleanApr = 100;
+    if(cleanApr < 0) cleanApr = 0; if(cleanApr > 100) cleanApr = 100;
     aprInput.value = cleanApr || 0;
     recalculateDashboard();
   });
 
-  // Expenses Bi-directional Event Listeners
+  // Expected Market Returns Input Setup
+  const txtRate = document.getElementById('txt-rate');
+  const slRate = document.getElementById('sl-rate');
+  txtRate.addEventListener('input', () => {
+    let cleanRate = parseVal(txtRate.value);
+    if(cleanRate < 0) cleanRate = 0; if(cleanRate > 15) cleanRate = 15;
+    slRate.value = cleanRate;
+    recalculateDashboard();
+  });
+  txtRate.addEventListener('blur', () => {
+    txtRate.value = parseVal(txtRate.value).toFixed(1);
+    recalculateDashboard();
+  });
+
+  // Expenses Range Input Configuration
   const txtExpenses = document.getElementById('txt-expenses');
   const slExpenses = document.getElementById('sl-expenses');
-
   slExpenses.addEventListener('input', recalculateDashboard);
   
-  txtExpenses.addEventListener('focus', () => {
-    txtExpenses.value = txtExpenses.value.replace(/[$,\/mo\s]/g, '');
-  });
+  txtExpenses.addEventListener('focus', () => { txtExpenses.value = txtExpenses.value.replace(/[$,\/mo\s]/g, ''); });
   txtExpenses.addEventListener('input', () => {
     let cleaned = parseVal(txtExpenses.value);
     if (cleaned > parseFloat(slExpenses.max)) cleaned = parseFloat(slExpenses.max);
@@ -1363,11 +1324,9 @@
     slExpenses.value = cleaned;
     recalculateDashboard();
   });
-  txtExpenses.addEventListener('blur', () => {
-    recalculateDashboard();
-  });
+  txtExpenses.addEventListener('blur', () => { recalculateDashboard(); });
 
-  // Optimizer Panel Event Listeners
+  // Cash Flow Controls Event Layout
   ['in-gross', 'in-deductions'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('focus', () => { el.value = el.value.replace(/,/g, ''); });
@@ -1376,98 +1335,12 @@
   });
   document.getElementById('in-status').addEventListener('change', recalculateDashboard);
  
-  // Compound Growth Mathematics
-  function calcFV(pv, pmt, r, n) {
-    if (r === 0) return pv + pmt * 12 * n;
-    const rm = r / 12;
-    return pv * Math.pow(1 + rm, n * 12) + pmt * ((Math.pow(1 + rm, n * 12) - 1) / rm);
-  }
-  
-  let growthChart;
-  
-  function updateProjector() {
-    const pv = parseFloat(document.getElementById('sl-balance').value);
-    const pmt = parseFloat(document.getElementById('sl-contrib').value);
-    const r = parseFloat(document.getElementById('sl-rate').value) / 100;
-    const years = parseInt(document.getElementById('sl-years').value);
- 
-    if (document.activeElement !== document.getElementById('txt-balance')) {
-      document.getElementById('txt-balance').value = fmt(pv);
-    }
-    if (document.activeElement !== document.getElementById('txt-contrib')) {
-      document.getElementById('txt-contrib').value = '$' + Math.round(pmt).toLocaleString() + '/mo';
-    }
-    if (document.activeElement !== document.getElementById('txt-rate')) {
-      document.getElementById('txt-rate').value = (r * 100).toFixed(1) + '%';
-    }
-    if (document.activeElement !== document.getElementById('txt-years')) {
-      document.getElementById('txt-years').value = years + ' yrs';
-    }
- 
-    const fv = calcFV(pv, pmt, r, years);
-    const standardTotal = pv + pmt * 12 * years;
-    const marketGain = fv - standardTotal;
- 
-    document.getElementById('fv-display').textContent = fmt(fv);
-    document.getElementById('fv-gain').textContent = '+' + fmt(marketGain) + ' generated purely from compound yield';
- 
-    const labels = [], points = [];
-    for (let y = 0; y <= years; y++) {
-      labels.push(y === 0 ? 'Now' : 'Yr ' + y);
-      points.push(Math.round(calcFV(pv, pmt, r, y)));
-    }
- 
-    if (growthChart) {
-      growthChart.data.labels = labels;
-      growthChart.data.datasets[0].data = points;
-      growthChart.update('none');
-    }
-  }
- 
-  // Bi-directional Slider Bindings
-  ['sl-balance', 'sl-contrib', 'sl-rate', 'sl-years'].forEach(id => {
-    document.getElementById(id).addEventListener('input', updateProjector);
-  });
-  
-  // Bi-directional Manual Text Fields Bindings
-  const textBindings = [
-    { txtId: 'txt-balance', slId: 'sl-balance', clean: val => parseVal(val) },
-    { txtId: 'txt-contrib', slId: 'sl-contrib', clean: val => parseVal(val) },
-    { txtId: 'txt-rate',    slId: 'sl-rate',    clean: val => parseVal(val) },
-    { txtId: 'txt-years',   slId: 'sl-years',   clean: val => parseInt(val.replace(/[^0-9]/g, '')) || 1 }
-  ];
-
-  textBindings.forEach(binding => {
-    const txtElement = document.getElementById(binding.txtId);
-    const slElement = document.getElementById(binding.slId);
-
-    txtElement.addEventListener('focus', () => {
-      txtElement.value = txtElement.value.replace(/[$,\/mo\syrs%]/g, '');
-    });
-
-    txtElement.addEventListener('input', () => {
-      let cleaned = binding.clean(txtElement.value);
-      if (cleaned > parseFloat(slElement.max)) cleaned = parseFloat(slElement.max);
-      if (cleaned < parseFloat(slElement.min)) cleaned = parseFloat(slElement.min);
-      slElement.value = cleaned;
-      updateProjector();
-    });
-
-    txtElement.addEventListener('blur', () => {
-      updateProjector();
-    });
-  });
- 
-  // Render Diagrams & Charts
+  // Chart Rendering Operations
   assetDonut = new Chart(document.getElementById('assetDonut'), {
     type: 'doughnut',
     data: {
       labels: ['Cash', 'Retirement', 'Property', 'Other Assets'],
-      datasets: [{
-        data: [0, 0, 0, 0],
-        backgroundColor: ['#2563eb', '#0e9f6e', '#7c3aed', '#d97706'],
-        borderWidth: 0
-      }]
+      datasets: [{ data: [0, 0, 0, 0], backgroundColor: ['#2563eb', '#0e9f6e', '#7c3aed', '#d97706'], borderWidth: 0 }]
     },
     options: {
       responsive: true, maintainAspectRatio: false, cutout: '75%',
@@ -1477,7 +1350,7 @@
  
   growthChart = new Chart(document.getElementById('growthChart'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'Portfolio Forecast', data: [], fill: true, backgroundColor: 'rgba(37,99,235,0.06)', borderColor: '#2563eb', borderWidth: 2, pointRadius: 0, tension: 0.35 }] },
+    data: { labels: [], datasets: [{ label: 'Portfolio Forecast', data: [], fill: true, backgroundColor: 'rgba(37,99,235,0.06)', borderColor: '#2563eb', borderWidth: 2, pointRadius: 0, tension: 0.2 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
@@ -1488,9 +1361,8 @@
     }
   });
  
-  // Kickstart Application
+  // Initial Boot Sequence
   recalculateDashboard();
-  updateProjector();
 </script>
 </body>
 </html>

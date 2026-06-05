@@ -1148,7 +1148,7 @@
       for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
         simulationMonthsOffset++;
         
-        // Corrected Math: Grow assets monthly by market yield
+        // 1. Grow assets monthly by market yield
         simRetirement *= (1 + annualYield / 12);
         simBrokerage *= (1 + annualYield / 12);
         
@@ -1160,9 +1160,10 @@
           waterfallActivePhase = 'investing';
         }
 
-        // Add employer and employee additions monthly
+        // 2. Add employer and employee additions monthly
         simRetirement += (totalInflowEmployer401k / 12);
 
+        // 3. Direct the surplus or handles drawdown deficits across available assets
         if (simDebt > 0 && calculatedSavingsMargin > 0) {
           let debtInterest = simDebt * monthlyDebtApr;
           simDebt += debtInterest - calculatedSavingsMargin;
@@ -1173,9 +1174,33 @@
         } else if (simDebt <= 0 && calculatedSavingsMargin > 0) {
           simBrokerage += calculatedSavingsMargin;
         } else if (calculatedSavingsMargin < 0) {
-          simBrokerage += calculatedSavingsMargin;
-          if (simBrokerage < 0) { simCash += simBrokerage; simBrokerage = 0; }
-          if (simCash < 0) simCash = 0;
+          let remainingDeficit = calculatedSavingsMargin; // This is a negative value
+          
+          // Drain brokerage first
+          simBrokerage += remainingDeficit;
+          if (simBrokerage < 0) {
+            remainingDeficit = simBrokerage; 
+            simBrokerage = 0;
+          } else {
+            remainingDeficit = 0;
+          }
+          
+          // Drain cash second
+          if (remainingDeficit < 0) {
+            simCash += remainingDeficit;
+            if (simCash < 0) {
+              remainingDeficit = simCash;
+              simCash = 0;
+            } else {
+              remainingDeficit = 0;
+            }
+          }
+          
+          // Force drain from retirement last if completely dry
+          if (remainingDeficit < 0) {
+            simRetirement += remainingDeficit;
+            if (simRetirement < 0) simRetirement = 0; 
+          }
         }
 
         currentCompoundingNW = simCash + simBrokerage + simRetirement;

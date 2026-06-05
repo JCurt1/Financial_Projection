@@ -414,9 +414,10 @@
     border-radius: var(--radius-sm);
     padding: 4px 8px;
     height: 28px;
+    gap: 4px;
   }
   .diag-rate-wrap label {
-    font-size: 10px; text-transform: uppercase; color: var(--text-secondary); font-weight: 500; margin-right: 6px;
+    font-size: 10px; text-transform: uppercase; color: var(--text-secondary); font-weight: 500;
   }
   .diag-rate-wrap input {
     background: transparent; border: none; outline: none; font-family: 'DM Mono', monospace;
@@ -666,7 +667,6 @@
       </div>
     </div>
 
-    <!-- Live Cash Flow Metrics Row -->
     <div class="income-grid" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
       <div class="cashflow-summary" style="border-left-color: var(--blue);">
         <span class="cf-label">Est. Avg Monthly Tax</span>
@@ -833,19 +833,25 @@
     <div class="panel">
       <div class="diag-header-row">
         <p class="section-label" style="margin-top: 0; margin-bottom: 0;">Tethered Wealth Compounding Engine</p>
-        <div class="diag-rate-wrap">
-          <label for="txt-rate">Market Yield:</label>
-          <input type="text" id="txt-rate" value="7.0" style="width: 24px;" />
-          <span>%</span>
+        <div style="display: flex; gap: 8px;">
+          <div class="diag-rate-wrap">
+            <label for="txt-age">Current Age:</label>
+            <input type="text" id="txt-age" value="31" style="width: 20px;" />
+          </div>
+          <div class="diag-rate-wrap">
+            <label for="txt-rate">Market Yield:</label>
+            <input type="text" id="txt-rate" value="7.0" style="width: 24px;" />
+            <span>%</span>
+          </div>
         </div>
         <input type="range" min="0" max="15" step="0.1" value="7" id="sl-rate" style="display: none;" />
       </div>
       <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; margin-top: 2px;">
-        This engine simulates the next 25 years based on the exact timeline outcomes of your Waterfall loop above.
+        This engine simulates compounding growth from your initial age up to a target horizon of Age 60.
       </p>
  
       <div class="fv-result">
-        <div class="fv-label">Projected 25-Year Liquid Portfolio</div>
+        <div class="fv-label" id="fv-target-label">Projected Portfolio at Age 60</div>
         <div class="fv-value" id="fv-display">—</div>
         <div class="fv-gain" id="fv-gain">—</div>
       </div>
@@ -892,444 +898,524 @@
     const currentTheme = document.documentElement.getAttribute('data-theme');
     let newTheme = 'light';
     if (currentTheme !== 'dark') {
-      newTheme = 'dark';
+      document.documentElement.setAttribute('data-theme', 'dark');
       themeIcon.textContent = '☀️';
       themeText.textContent = 'Light Mode';
+      newTheme = 'dark';
     } else {
+      document.documentElement.removeAttribute('data-theme');
       themeIcon.textContent = '🌙';
       themeText.textContent = 'Dark Mode';
     }
-    document.documentElement.setAttribute('data-theme', newTheme);
     updateChartTheme(newTheme);
   });
 
-  // Math Parsers
-  function parseVal(str) { return parseFloat(str.toString().replace(/[^0-9.]/g, '')) || 0; }
-  function fmt(n) {
-    if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
-    if (n <= -1e6) return '-$' + (Math.abs(n) / 1e6).toFixed(2) + 'M';
-    return (n < 0 ? '-' : '') + '$' + Math.round(Math.abs(n)).toLocaleString();
+  // Global State Stores
+  let state = {
+    cash: 4500,
+    retirement: 22000,
+    homeValue: 0,
+    brokerage: 8500,
+    consumerDebt: 17000,
+    mortgage: 0,
+    grossIncome: 50000,
+    filingStatus: 'single',
+    deferral401k: 15,
+    employerMatch: 4,
+    healthCostMonthly: 150,
+    monthlyExpenses: 3200,
+    debtApr: 12,
+    marketYield: 7.0,
+    initialAge: 31
+  };
+
+  function formatCurrency(val) {
+    if (val < 0) return '-' + formatCurrency(Math.abs(val));
+    return '$' + Math.floor(val).toLocaleString('en-US');
   }
 
-  // Health Tier Quick Toggles
-  function setHealthTier(tier, amount) {
+  function parseInputVal(str) {
+    let clean = str.replace(/[^0-9.-]/g, '');
+    let parsed = parseFloat(clean);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+
+  function setHealthTier(tier, val) {
     document.querySelectorAll('.tier-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById(`tier-${tier}`).classList.add('active');
-    document.getElementById('in-health-raw').value = amount.toLocaleString();
-    calculateEverything();
-  }
- 
-  function getDashboardValues() {
-    const vals = {};
-    document.querySelectorAll('#cards .asset-card').forEach(card => {
-      vals[card.dataset.key] = parseVal(card.querySelector('.card-input').value);
-    });
-    return vals;
+    document.getElementById('in-health-raw').value = val.toLocaleString();
+    state.healthCostMonthly = val;
+    recalculateDashboard();
   }
 
-  // Advanced Federal Tax & Multi-Month 401(k) Engine
-  function calculateTrueIncomeAndTax() {
-    const grossIncome = parseVal(document.getElementById('in-gross').value);
-    const filingStatus = document.getElementById('in-status').value;
-    const deferralPct = parseVal(document.getElementById('in-401k-pct').value) / 100;
-    const matchPct = parseVal(document.getElementById('in-match-pct').value) / 100;
-    const healthMonthly = parseVal(document.getElementById('in-health-raw').value);
+  // Core Math Engine
+  function recalculateDashboard() {
+    let totalAssets = state.cash + state.retirement + state.homeValue + state.brokerage;
+    let totalLiabilities = state.consumerDebt + state.mortgage;
+    let netWorth = totalAssets - totalLiabilities;
+
+    document.getElementById('networth-display').textContent = formatCurrency(netWorth);
+    document.getElementById('assets-display').textContent = formatCurrency(totalAssets);
+    document.getElementById('liabilities-display').textContent = formatCurrency(totalLiabilities);
     
-    const monthlyGross = grossIncome / 12;
-    const annualHealth = healthMonthly * 12;
-
-    // 2026 Caps Setup
-    const MAX_ELECTIVE_DEFERRAL = 24500;
-    const MAX_TOTAL_415C = 72000;
-
-    let totalEmployeeYTD = 0;
-    let totalCombinedYTD = 0;
-    
-    let simulatedAnnualPreTaxDeductions = 0;
-    let simulatedAnnualEmployerMatch = 0;
-    let maxOutMonth = -1;
-
-    // Simulate payroll run month-by-month
-    for (let m = 0; m < 12; m++) {
-      let monthlyEmployeeContribution = monthlyGross * deferralPct;
-      let monthlyEmployerContribution = monthlyGross * matchPct;
-
-      // Handle Individual Deferral Cap ($24,500)
-      if (totalEmployeeYTD + monthlyEmployeeContribution > MAX_ELECTIVE_DEFERRAL) {
-        monthlyEmployeeContribution = Math.max(0, MAX_ELECTIVE_DEFERRAL - totalEmployeeYTD);
-        if (maxOutMonth === -1 && monthlyEmployeeContribution >= 0) maxOutMonth = m;
-      }
-
-      // Handle Combined Ceiling Match Cap ($72,000)
-      let intendedCombined = monthlyEmployeeContribution + monthlyEmployerContribution;
-      if (totalCombinedYTD + intendedCombined > MAX_TOTAL_415C) {
-        intendedCombined = Math.max(0, MAX_TOTAL_415C - totalCombinedYTD);
-        monthlyEmployerContribution = Math.max(0, intendedCombined - monthlyEmployeeContribution);
-      }
-
-      totalEmployeeYTD += monthlyEmployeeContribution;
-      totalCombinedYTD += intendedCombined;
-
-      simulatedAnnualPreTaxDeductions += monthlyEmployeeContribution;
-      simulatedAnnualEmployerMatch += monthlyEmployerContribution;
-    }
-
-    // Determine target interface messaging for 401(k) Cap
-    const alertBox = document.getElementById('maxout-alert-box');
-    const statusTxt = document.getElementById('cf-maxout-status');
-    if (totalEmployeeYTD >= MAX_ELECTIVE_DEFERRAL) {
-      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      statusTxt.textContent = `Maxed by ${monthNames[maxOutMonth] || 'Dec'}`;
-      statusTxt.style.color = 'var(--amber)';
-      alertBox.style.borderLeftColor = 'var(--amber)';
+    let nwDisp = document.getElementById('networth-display');
+    if (netWorth >= 0) {
+      nwDisp.className = 'nw-value green';
     } else {
-      statusTxt.textContent = "Full Year";
-      statusTxt.style.color = 'var(--text-secondary)';
-      alertBox.style.borderLeftColor = 'var(--text-secondary)';
+      nwDisp.className = 'nw-value red';
     }
 
-    // Aggregate Standard Deductions
-    const stdDeductions = filingStatus === 'married' ? 30000 : 15000;
-    const taxAdjustments = simulatedAnnualPreTaxDeductions + annualHealth + stdDeductions;
-    const taxableIncome = Math.max(0, grossIncome - taxAdjustments);
-
-    // 2026 Brackets
-    const brackets = {
-      single: [
-        { upTo: 11600, rate: 0.10 }, { upTo: 47150, rate: 0.12 }, { upTo: 100525, rate: 0.22 },
-        { upTo: 191950, rate: 0.24 }, { upTo: 243725, rate: 0.32 }, { upTo: 609350, rate: 0.35 }, { upTo: Infinity, rate: 0.37 }
-      ],
-      married: [
-        { upTo: 23200, rate: 0.10 }, { upTo: 94300, rate: 0.12 }, { upTo: 201050, rate: 0.22 },
-        { upTo: 383900, rate: 0.24 }, { upTo: 487450, rate: 0.32 }, { upTo: 731200, rate: 0.35 }, { upTo: Infinity, rate: 0.37 }
-      ]
-    };
-
-    let remaining = taxableIncome;
-    let incomeTax = 0;
-    let previousLimit = 0;
-    const currentBrackets = brackets[filingStatus];
-
-    for (let i = 0; i < currentBrackets.length; i++) {
-      const b = currentBrackets[i];
-      const chunkCap = b.upTo - previousLimit;
-      const taxableInChunk = Math.min(remaining, chunkCap);
-      incomeTax += taxableInChunk * b.rate;
-      remaining -= taxableInChunk;
-      if (remaining <= 0) break;
-      previousLimit = b.upTo;
-    }
-
-    // FICA Calculations
-    const ssCap = 176100; 
-    const ssTax = Math.min(grossIncome, ssCap) * 0.062;
-    const medicareTax = grossIncome * 0.0145;
-    const totalAnnualTax = incomeTax + ssTax + medicareTax;
-
-    // Monthly Averages Output
-    const monthlyTax = totalAnnualTax / 12;
-    const monthlyNetTakeHome = (grossIncome - totalAnnualTax - simulatedAnnualPreTaxDeductions - annualHealth) / 12;
-
-    return {
-      monthlyTax,
-      monthlyNetTakeHome,
-      annualEmployee401k: simulatedAnnualPreTaxDeductions,
-      annualEmployerMatch: simulatedAnnualEmployerMatch,
-      totalAnnualRetirementInflow: totalCombinedYTD
-    };
-  }
-
-  function calculateEverything() {
-    const db = getDashboardValues();
+    // Tax Engine Approximation
+    let gross = state.grossIncome;
+    let traditional401k = gross * (state.deferral401k / 100);
+    traditional401k = Math.min(traditional401k, 23500); // 401k traditional max proxy
+    let preTaxHealth = state.healthCostMonthly * 12;
     
-    // Core Balance Sheet Metrics
-    const totalAssets = db.cash + db.retirement + db.homeValue + db.brokerage;
-    const totalLiabilities = db.consumerDebt + db.mortgage;
-    const netWorth = totalAssets - totalLiabilities;
+    let standardDeduction = state.filingStatus === 'married' ? 29200 : 14600;
+    let taxableIncome = gross - traditional401k - preTaxHealth - standardDeduction;
+    if (taxableIncome < 0) taxableIncome = 0;
 
-    document.getElementById('networth-display').textContent = fmt(netWorth);
-    document.getElementById('assets-display').textContent = fmt(totalAssets);
-    document.getElementById('liabilities-display').textContent = fmt(totalLiabilities);
-
-    if (netWorth < 0) {
-      document.getElementById('networth-display').className = "nw-value red";
+    // Estimate income tax liabilities bracket step calculations
+    let taxEstimate = 0;
+    if (state.filingStatus === 'single') {
+      if (taxableIncome > 11600) taxEstimate += 11600 * 0.10; else taxEstimate += taxableIncome * 0.10;
+      if (taxableIncome > 47150) taxEstimate += (47150 - 11600) * 0.12; else if (taxableIncome > 11600) taxEstimate += (taxableIncome - 11600) * 0.12;
+      if (taxableIncome > 100525) taxEstimate += (100525 - 47150) * 0.22; else if (taxableIncome > 47150) taxEstimate += (taxableIncome - 47150) * 0.22;
+      if (taxableIncome > 100525) taxEstimate += (taxableIncome - 100525) * 0.24;
     } else {
-      document.getElementById('networth-display').className = "nw-value green";
+      if (taxableIncome > 23200) taxEstimate += 23200 * 0.10; else taxEstimate += taxableIncome * 0.10;
+      if (taxableIncome > 94300) taxEstimate += (94300 - 23200) * 0.12; else if (taxableIncome > 23200) taxEstimate += (taxableIncome - 23200) * 0.12;
+      if (taxableIncome > 201050) taxEstimate += (201050 - 94300) * 0.22; else if (taxableIncome > 94300) taxEstimate += (taxableIncome - 94300) * 0.22;
+      if (taxableIncome > 201050) taxEstimate += (taxableIncome - 201050) * 0.24;
     }
 
-    // Cash Flow Integrations
-    const taxes = calculateTrueIncomeAndTax();
-    const monthlyExpenses = parseVal(document.getElementById('sl-expenses').value);
-    const savingsMargin = Math.max(0, taxes.monthlyNetTakeHome - monthlyExpenses);
+    let monthlyTax = taxEstimate / 12;
+    let monthlyGross = gross / 12;
+    let monthly401k = traditional401k / 12;
+    let monthlyHealth = state.healthCostMonthly;
+    let baseTakehome = monthlyGross - monthlyTax - monthly401k - monthlyHealth;
 
-    document.getElementById('cf-tax-withheld').textContent = fmt(taxes.monthlyTax) + '/mo';
-    document.getElementById('cf-takehome').textContent = fmt(taxes.monthlyNetTakeHome) + '/mo';
-    document.getElementById('cf-surplus').textContent = fmt(savingsMargin) + '/mo';
+    document.getElementById('cf-tax-withheld').textContent = formatCurrency(monthlyTax) + '/mo';
+    document.getElementById('cf-takehome').textContent = formatCurrency(baseTakehome) + '/mo';
 
-    // Financial Health Diagnostics Matrix
-    const emergencyRunwayMonths = monthlyExpenses > 0 ? db.cash / monthlyExpenses : 0;
-    const emRunwayWidget = document.getElementById('metric-emergency-runway');
-    emRunwayWidget.textContent = emergencyRunwayMonths.toFixed(1) + ' mo';
-    emRunwayWidget.className = "metric-value " + (emergencyRunwayMonths >= 6 ? 'good' : (emergencyRunwayMonths >= 3 ? 'warning' : 'red'));
-
-    const target6MoBuffer = monthlyExpenses * 6;
-    const shortage = Math.max(0, target6MoBuffer - db.cash);
-    const replenishmentMonths = (shortage > 0 && savingsMargin > 0) ? shortage / savingsMargin : 0;
-    document.getElementById('metric-replenish-time').textContent = shortage > 0 ? (replenishmentMonths.toFixed(1) + ' mos') : 'Fully Funded';
-
-    const homeEquityValue = db.homeValue - db.mortgage;
-    document.getElementById('metric-home-equity').textContent = fmt(homeEquityValue);
-
-    const debtToAssetRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
-    const ratioWidget = document.getElementById('metric-debt-ratio');
-    ratioWidget.textContent = debtToAssetRatio.toFixed(1) + '%';
-    ratioWidget.className = "metric-value " + (debtToAssetRatio < 35 ? 'good' : (debtToAssetRatio < 75 ? 'warning' : 'red'));
-
-    // Timeline Waterfall Engine Loops
-    let runningCash = db.cash;
-    let runningConsumerDebt = db.consumerDebt;
-    let runningRetirement = db.retirement + db.brokerage;
-    
-    let monthsElapsed = 0;
-    const debtApr = parseVal(document.getElementById('debt-apr-input').value) / 100;
-    let totalPaidInterest = 0;
-
-    let dateDebtFree = null;
-    let dateRunwayFunded = null;
-    let dateCoastFI = null;
-    let dateFullFI = null;
-
-    const fiTarget = monthlyExpenses * 12 * 25; 
-    document.getElementById('fi-number-target').textContent = fmt(fiTarget);
-    
-    const progressPct = fiTarget > 0 ? Math.min(100, (runningRetirement / fiTarget) * 100) : 0;
-    document.getElementById('fi-progress-pct').textContent = progressPct.toFixed(1) + '%';
-
-    const yieldRate = parseVal(document.getElementById('txt-rate').value) / 100;
-    const monthlyYield = yieldRate / 12;
-
-    // Run dynamic 50-year system loop projections (600 max iterations)
-    while (monthsElapsed < 600) {
-      // Apply asset compound interest returns
-      runningRetirement *= (1 + monthlyYield);
-      // Inject standard pre-tax retirement plan additions
-      runningRetirement += (taxes.totalAnnualRetirementInflow / 12);
-
-      // Evaluate Debt Phase
-      if (runningConsumerDebt > 0) {
-        const monthlyAccruedInterest = runningConsumerDebt * (debtApr / 12);
-        totalPaidInterest += monthlyAccruedInterest;
-        runningConsumerDebt += monthlyAccruedInterest;
-
-        const debtPayment = Math.min(runningConsumerDebt, savingsMargin + (runningCash > monthlyExpenses ? runningCash - monthlyExpenses : 0));
-        runningConsumerDebt -= debtPayment;
-        
-        if (runningConsumerDebt <= 0 && !dateDebtFree) {
-          dateDebtFree = monthsElapsed;
-        }
-      } else {
-        // Evaluate Emergency Cache Cushioning Phase
-        if (!dateDebtFree) dateDebtFree = monthsElapsed;
-        
-        if (runningCash < target6MoBuffer) {
-          const cashInjection = Math.min(target6MoBuffer - runningCash, savingsMargin);
-          runningCash += cashInjection;
-          if (runningCash >= target6MoBuffer && !dateRunwayFunded) {
-            dateRunwayFunded = monthsElapsed;
-          }
-        } else {
-          if (!dateRunwayFunded) dateRunwayFunded = monthsElapsed;
-          // Overflow surplus wealth direct into liquid brokerage accounts
-          runningRetirement += savingsMargin;
-        }
-      }
-
-      // Check Passive Freedom Checkpoints
-      const yearsToRetireMax = 65 - 31; // Failsafe benchmark base span
-      const projectedFutureRetirementValue = runningRetirement * Math.pow(1 + yieldRate, Math.max(0, yearsToRetireMax - (monthsElapsed / 12)));
-      
-      if (projectedFutureRetirementValue >= fiTarget && !dateCoastFI) {
-        dateCoastFI = monthsElapsed;
-      }
-      if (runningRetirement >= fiTarget && !dateFullFI) {
-        dateFullFI = monthsElapsed;
-        break; 
-      }
-
-      monthsElapsed++;
-    }
-
-    // Map waterfall states into target node visuals
-    updateTimelineNode('debt', dateDebtFree, "Debt Free", true);
-    updateTimelineNode('runway', dateRunwayFunded, "6-Mo Runway", dateDebtFree !== null);
-    updateTimelineNode('coast', dateCoastFI, "Coast FI", dateRunwayFunded !== null);
-    updateTimelineNode('fi', dateFullFI, "Full FI", dateCoastFI !== null);
-
-    // Render Diagnostics Readouts
-    if (db.consumerDebt > 0 && dateDebtFree) {
-      document.getElementById('debt-free-months').textContent = dateDebtFree;
-      const targetDate = new Date();
-      targetDate.setMonth(targetDate.getMonth() + dateDebtFree);
-      document.getElementById('debt-free-date').textContent = targetDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      document.getElementById('debt-total-interest').textContent = fmt(totalPaidInterest);
+    if (traditional401k >= 23500) {
+      document.getElementById('cf-maxout-status').textContent = 'Maxed Out';
+      document.getElementById('maxout-alert-box').style.borderLeftColor = 'var(--green)';
     } else {
+      document.getElementById('cf-maxout-status').textContent = 'Partial';
+      document.getElementById('maxout-alert-box').style.borderLeftColor = 'var(--amber)';
+    }
+
+    let calculatedSavingsMargin = baseTakehome - state.monthlyExpenses;
+    if (calculatedSavingsMargin < 0) calculatedSavingsMargin = 0;
+    document.getElementById('cf-surplus').textContent = formatCurrency(calculatedSavingsMargin) + '/mo';
+    document.getElementById('cf-surplus-box').style.borderLeftColor = calculatedSavingsMargin > 0 ? 'var(--green)' : 'var(--red)';
+
+    // Debt Free Projection Trackers
+    let currentDebt = state.consumerDebt;
+    let monthlyDebtPayment = calculatedSavingsMargin;
+    let monthsToDebtFree = 0;
+    let totalDebtInterestFriction = 0;
+    let monthlyDebtApr = (state.debtApr / 100) / 12;
+
+    if (currentDebt > 0 && monthlyDebtPayment > 0) {
+      while (currentDebt > 0 && monthsToDebtFree < 360) {
+        let interestAccrual = currentDebt * monthlyDebtApr;
+        totalDebtInterestFriction += interestAccrual;
+        currentDebt = currentDebt + interestAccrual - monthlyDebtPayment;
+        monthsToDebtFree++;
+      }
+    } else if (currentDebt > 0) {
+      monthsToDebtFree = Infinity;
+    }
+
+    let today = new Date();
+    let debtFreeDateStr = '—';
+    if (state.consumerDebt <= 0) {
+      debtFreeDateStr = 'Immediate';
       document.getElementById('debt-free-months').textContent = '0';
-      document.getElementById('debt-free-date').textContent = 'Paid';
       document.getElementById('debt-total-interest').textContent = '$0';
-    }
-
-    if (dateFullFI) {
-      const targetFiDate = new Date();
-      targetFiDate.setMonth(targetFiDate.getMonth() + dateFullFI);
-      document.getElementById('fi-freedom-date').textContent = targetFiDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      document.getElementById('node-debt').className = 'timeline-node phase-debt complete';
+      document.getElementById('status-debt').textContent = 'Complete';
+      document.getElementById('date-debt').textContent = today.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
+    } else if (monthsToDebtFree === Infinity) {
+      document.getElementById('debt-free-date').textContent = 'Never';
+      document.getElementById('debt-free-months').textContent = '∞';
+      document.getElementById('debt-total-interest').textContent = 'Escalating';
+      document.getElementById('node-debt').className = 'timeline-node phase-debt active';
+      document.getElementById('status-debt').textContent = 'Stalled';
+      document.getElementById('date-debt').textContent = '—';
     } else {
-      document.getElementById('fi-freedom-date').textContent = '50y+';
+      let targetDate = new Date();
+      targetDate.setMonth(today.getMonth() + monthsToDebtFree);
+      debtFreeDateStr = targetDate.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
+      document.getElementById('debt-free-date').textContent = debtFreeDateStr;
+      document.getElementById('debt-free-months').textContent = monthsToDebtFree;
+      document.getElementById('debt-total-interest').textContent = formatCurrency(totalDebtInterestFriction);
+      document.getElementById('node-debt').className = 'timeline-node phase-debt active';
+      document.getElementById('status-debt').textContent = 'Active';
+      document.getElementById('date-debt').textContent = debtFreeDateStr;
     }
 
-    // Render Assets Pie Chart Representation
-    updateDonutChart(db);
-    // Project 25-Year Long-Term Line Wealth Charts
-    updateGrowthChart(taxes.totalAnnualRetirementInflow, savingsMargin, yieldRate);
-  }
-
-  function updateTimelineNode(id, months, label, parentComplete) {
-    const node = document.getElementById(`node-${id}`);
-    const status = document.getElementById(`status-${id}`);
-    const dateElement = document.getElementById(`date-${id}`);
-
-    if (months !== null && months <= 0) {
-      node.className = `timeline-node phase-${id} complete`;
-      status.textContent = "Achieved";
-      dateElement.textContent = "Current";
-    } else if (months !== null && parentComplete) {
-      node.className = `timeline-node phase-${id} active`;
-      status.textContent = "In Progress";
-      const projectDate = new Date();
-      projectDate.setMonth(projectDate.getMonth() + months);
-      dateElement.textContent = projectDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-    } else {
-      node.className = `timeline-node phase-${id}`;
-      status.textContent = "Locked";
-      dateElement.textContent = "—";
-    }
-  }
-
-  function updateDonutChart(db) {
-    const ctx = document.getElementById('assetDonut').getContext('2-2d');
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // Emergency Buffer Runway Tracking
+    let liquidFund = state.cash;
+    let monthlyBurn = state.monthlyExpenses || 1;
+    let emergencyMonths = liquidFund / monthlyBurn;
+    document.getElementById('metric-emergency-runway').textContent = emergencyMonths.toFixed(1) + ' mo';
     
-    if (assetDonut) {
-      assetDonut.data.datasets[0].data = [db.cash, db.retirement, db.homeValue, db.brokerage];
-      assetDonut.options.plugins.legend.labels.color = isDark ? '#c9d1d9' : '#0d1117';
-      assetDonut.update();
-      return;
+    let runwayNode = document.getElementById('node-runway');
+    let runwayStatus = document.getElementById('status-runway');
+    let runwayDate = document.getElementById('date-runway');
+    let replenishmentHorizonText = document.getElementById('metric-replenish-time');
+
+    let neededFor6Mo = (monthlyBurn * 6) - state.cash;
+
+    if (emergencyMonths >= 6) {
+      runwayNode.className = 'timeline-node phase-runway complete';
+      runwayStatus.textContent = 'Safe';
+      runwayDate.textContent = 'Active';
+      replenishmentHorizonText.textContent = 'Fully Funded';
+    } else {
+      runwayNode.className = 'timeline-node phase-runway active';
+      runwayStatus.textContent = 'Seeding';
+      if (calculatedSavingsMargin > 0 && monthsToDebtFree !== Infinity) {
+        let monthsToBuildRunway = Math.ceil(neededFor6Mo / calculatedSavingsMargin) + (state.consumerDebt > 0 ? monthsToDebtFree : 0);
+        let runwayTargetDate = new Date();
+        runwayTargetDate.setMonth(today.getMonth() + monthsToBuildRunway);
+        let runwayStr = runwayTargetDate.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
+        runwayDate.textContent = runwayStr;
+        replenishmentHorizonText.textContent = monthsToBuildRunway + ' mo';
+      } else {
+        runwayDate.textContent = '—';
+        replenishmentHorizonText.textContent = 'Insufficient Margin';
+      }
     }
 
-    assetDonut = new Chart(ctx, {
-      type: 'doughnut',
+    // Financial Independence Computations
+    let annualExpenses = monthlyBurn * 12;
+    let fiTargetNumber = annualExpenses * 25;
+    document.getElementById('fi-number-target').textContent = formatCurrency(fiTargetNumber);
+
+    let progressPct = (totalAssets / (fiTargetNumber || 1)) * 100;
+    document.getElementById('fi-progress-pct').textContent = Math.min(progressPct, 100).toFixed(1) + '%';
+
+    // Coast and Full Financial Independence Horizons Loop
+    let liquidPortfolioPool = state.retirement + state.brokerage;
+    let annualYield = state.marketYield / 100;
+    let currentSimulationAge = state.initialAge;
+    let targetHorizonAge = 60;
+    
+    let labelsCollection = [];
+    let trajectoryCollection = [];
+    
+    let currentCompoundingNW = liquidPortfolioPool;
+    
+    // Build Year-by-Year Tracker Matrices for Target Age Charts
+    let loopsTotal = targetHorizonAge - currentSimulationAge;
+    if (loopsTotal <= 0) loopsTotal = 1; // Fallback bound protection logic
+
+    labelsCollection.push("Age " + currentSimulationAge);
+    trajectoryCollection.push(currentCompoundingNW);
+
+    let calculatedSavingsAccumulator = calculatedSavingsMargin * 12;
+    let totalInflowEmployer401k = (state.grossIncome * (state.employerMatch / 100)) + traditional401k;
+    let realAnnualInvestmentFlow = calculatedSavingsAccumulator + totalInflowEmployer401k;
+
+    let simulationMonthsOffset = 0;
+    let absoluteFiAchievedAge = null;
+    let absoluteCoastAchievedAge = null;
+
+    for (let currentYearIndex = 1; currentYearIndex <= loopsTotal; currentYearIndex++) {
+      let activeTimelineAge = currentSimulationAge + currentYearIndex;
+      
+      // Calculate matching internal compounding elements monthly to mimic actual timeline loops
+      for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
+        simulationMonthsOffset++;
+        currentCompoundingNW *= (1 + annualYield / 12);
+        
+        let waterfallActivePhase = 'debt';
+        if (state.consumerDebt <= 0 || simulationMonthsOffset > monthsToDebtFree) {
+          waterfallActivePhase = 'runway';
+        }
+        if (emergencyMonths >= 6 || (waterfallActivePhase === 'runway' && (simulationMonthsOffset - monthsToDebtFree) * calculatedSavingsMargin >= neededFor6Mo)) {
+          waterfallActivePhase = 'investing';
+        }
+
+        if (waterfallActivePhase === 'investing') {
+          currentCompoundingNW += (calculatedSavingsMargin + (totalInflowEmployer401k / 12));
+        } else {
+          currentCompoundingNW += (totalInflowEmployer401k / 12);
+        }
+
+        // Test targets dynamically inside running engine loops
+        if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {
+          absoluteFiAchievedAge = activeTimelineAge;
+        }
+        
+        let yearsRemainingTo65 = Math.max(65 - activeTimelineAge, 0);
+        let coastFiRequiredThreshold = fiTargetNumber / Math.pow(1 + annualYield, yearsRemainingTo65);
+        if (!absoluteCoastAchievedAge && currentCompoundingNW >= coastFiRequiredThreshold) {
+          absoluteCoastAchievedAge = activeTimelineAge;
+        }
+      }
+
+      labelsCollection.push("Age " + activeTimelineAge);
+      trajectoryCollection.push(currentCompoundingNW);
+    }
+
+    // Set interactive visualization text elements
+    let terminalNetWorthResult = trajectoryCollection[trajectoryCollection.length - 1];
+    document.getElementById('fv-target-label').textContent = `Projected Portfolio at Age ${targetHorizonAge}`;
+    document.getElementById('fv-display').textContent = formatCurrency(terminalNetWorthResult);
+    
+    let compoundingGrowthGain = terminalNetWorthResult - liquidPortfolioPool;
+    document.getElementById('fv-gain').textContent = `+${formatCurrency(compoundingGrowthGain)} in capital generation growth`;
+
+    // Process Timeline Milestone Display Status Blocks
+    let coastNode = document.getElementById('node-coast');
+    let coastStatus = document.getElementById('status-coast');
+    let coastDateText = document.getElementById('date-coast');
+    
+    let yearsRemainingTo65 = Math.max(65 - state.initialAge, 0);
+    let currentCoastFiRequiredThreshold = fiTargetNumber / Math.pow(1 + annualYield, yearsRemainingTo65);
+
+    if (liquidPortfolioPool >= currentCoastFiRequiredThreshold) {
+      coastNode.className = 'timeline-node phase-coast complete';
+      coastStatus.textContent = 'Achieved';
+      coastDateText.textContent = 'Immediate';
+    } else if (absoluteCoastAchievedAge) {
+      coastNode.className = 'timeline-node phase-coast active';
+      coastStatus.textContent = 'Approaching';
+      coastDateText.textContent = 'Age ' + absoluteCoastAchievedAge;
+    } else {
+      coastNode.className = 'timeline-node phase-coast';
+      coastStatus.textContent = 'Locked';
+      coastDateText.textContent = '—';
+    }
+
+    let fiNode = document.getElementById('node-fi');
+    let fiStatus = document.getElementById('status-fi');
+    let fiDateText = document.getElementById('date-fi');
+
+    if (liquidPortfolioPool >= fiTargetNumber) {
+      fiNode.className = 'timeline-node phase-fi complete';
+      fiStatus.textContent = 'Achieved';
+      fiDateText.textContent = 'Immediate';
+      document.getElementById('fi-freedom-date').textContent = 'Immediate';
+    } else if (absoluteFiAchievedAge) {
+      fiNode.className = 'timeline-node phase-fi active';
+      fiStatus.textContent = 'Tracking';
+      fiDateText.textContent = 'Age ' + absoluteFiAchievedAge;
+      document.getElementById('fi-freedom-date').textContent = 'Age ' + absoluteFiAchievedAge;
+    } else {
+      fiNode.className = 'timeline-node phase-fi';
+      fiStatus.textContent = 'Locked';
+      fiDateText.textContent = '—';
+      document.getElementById('fi-freedom-date').textContent = 'Out of Bounds';
+    }
+
+    // Home Equity Calc Metrics
+    let equityVal = state.homeValue - state.mortgage;
+    document.getElementById('metric-home-equity').textContent = formatCurrency(equityVal);
+    
+    let safetyDebtAssetPercentage = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+    let ratioTextElem = document.getElementById('metric-debt-ratio');
+    ratioTextElem.textContent = safetyDebtAssetPercentage.toFixed(1) + '%';
+    if (safetyDebtAssetPercentage > 40) ratioTextElem.className = 'metric-value warning'; else ratioTextElem.className = 'metric-value good';
+
+    // Synchronize Chart Datasets Smoothly
+    if (growthChart) {
+      growthChart.data.labels = labelsCollection;
+      growthChart.data.datasets[0].data = trajectoryCollection;
+      growthChart.update();
+    }
+
+    if (assetDonut) {
+      assetDonut.data.datasets[0].data = [state.cash, state.retirement, state.brokerage, state.homeValue];
+      assetDonut.update();
+    }
+  }
+
+  // Bind Listeners
+  function initializeDashboardInteractions() {
+    // Dynamic Balance Sheet Input Updates
+    document.querySelectorAll('#cards .asset-card').forEach(card => {
+      let key = card.getAttribute('data-key');
+      let input = card.querySelector('.card-input');
+      
+      input.addEventListener('blur', () => {
+        let numericVal = parseInputVal(input.value);
+        state[key] = numericVal;
+        input.value = numericVal.toLocaleString('en-US');
+        recalculateDashboard();
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') input.blur();
+      });
+    });
+
+    // Income Flow Block Inputs Validation Listeners
+    const bindSyncInput = (elemId, stateKey, isPercent = false) => {
+      let element = document.getElementById(elemId);
+      element.addEventListener('blur', () => {
+        let cleanVal = parseInputVal(element.value);
+        state[stateKey] = cleanVal;
+        element.value = isPercent ? cleanVal : cleanVal.toLocaleString('en-US');
+        recalculateDashboard();
+      });
+      element.addEventListener('keydown', (e) => { if (e.key === 'Enter') element.blur(); });
+    };
+
+    bindSyncInput('in-gross', 'grossIncome');
+    bindSyncInput('in-401k-pct', 'deferral401k', true);
+    bindSyncInput('in-match-pct', 'employerMatch', true);
+    bindSyncInput('in-health-raw', 'healthCostMonthly');
+    bindSyncInput('debt-apr-input', 'debtApr', true);
+
+    document.getElementById('in-status').addEventListener('change', (e) => {
+      state.filingStatus = e.target.value;
+      recalculateDashboard();
+    });
+
+    // Synchronize slider and tracking elements inputs
+    let sliderExpenses = document.getElementById('sl-expenses');
+    let textExpenses = document.getElementById('txt-expenses');
+
+    sliderExpenses.addEventListener('input', (e) => {
+      let val = parseInt(e.target.value);
+      state.monthlyExpenses = val;
+      textExpenses.value = formatCurrency(val) + '/mo';
+      recalculateDashboard();
+    });
+
+    textExpenses.addEventListener('blur', () => {
+      let rawNumericValue = parseInputVal(textExpenses.value);
+      if (rawNumericValue > 25000) rawNumericValue = 25000;
+      state.monthlyExpenses = rawNumericValue;
+      sliderExpenses.value = rawNumericValue;
+      textExpenses.value = formatCurrency(rawNumericValue) + '/mo';
+      recalculateDashboard();
+    });
+    textExpenses.addEventListener('keydown', (e) => { if (e.key === 'Enter') textExpenses.blur(); });
+
+    // Yield rate update parameters hooks
+    let yieldRateTextInput = document.getElementById('txt-rate');
+    yieldRateTextInput.addEventListener('blur', () => {
+      let validatedYieldNum = parseFloat(yieldRateTextInput.value);
+      if (isNaN(validatedYieldNum)) validatedYieldNum = 7.0;
+      if (validatedYieldNum < 0) validatedYieldNum = 0;
+      if (validatedYieldNum > 15) validatedYieldNum = 15;
+      state.marketYield = validatedYieldNum;
+      yieldRateTextInput.value = validatedYieldNum.toFixed(1);
+      recalculateDashboard();
+    });
+    yieldRateTextInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') yieldRateTextInput.blur(); });
+
+    // Initial Age Update Handler
+    let initialAgeTextInput = document.getElementById('txt-age');
+    initialAgeTextInput.addEventListener('blur', () => {
+      let validatedAgeNum = parseInt(initialAgeTextInput.value);
+      if (isNaN(validatedAgeNum) || validatedAgeNum < 18) validatedAgeNum = 18;
+      if (validatedAgeNum >= 60) validatedAgeNum = 59; // Cap input underneath target threshold boundaries
+      state.initialAge = validatedAgeNum;
+      initialAgeTextInput.value = validatedAgeNum;
+      recalculateDashboard();
+    });
+    initialAgeTextInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') initialAgeTextInput.blur(); });
+  }
+
+  // Create Chart Components Initializations Hooks
+  function createVisualCharts() {
+    const ctxCompounding = document.getElementById('growthChart').getContext('2d');
+    const isDarkThemeActive = document.documentElement.getAttribute('data-theme') === 'dark';
+    const dynamicGridBorderColor = isDarkThemeActive ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)';
+    const textLabelThemeColors = isDarkThemeActive ? '#8b949e' : '#9aa3b5';
+
+    growthChart = new Chart(ctxCompounding, {
+      type: 'line',
       data: {
-        labels: ['Cash', 'Retirement', 'Property', 'Brokerage'],
+        labels: [],
         datasets: [{
-          data: [db.cash, db.retirement, db.homeValue, db.brokerage],
-          backgroundColor: ['#2563eb', '#0e9f6e', '#7c3aed', '#d97706'],
-          borderWidth: 0
+          label: 'Projected True Liquid Assets Portfolio',
+          data: [],
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.04)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.15
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'DM Sans', size: 11 }, color: isDark ? '#c9d1d9' : '#0d1117' } }
+          legend: { display: false },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: function(context) {
+                return ' ' + context.dataset.label + ': ' + formatCurrency(context.parsed.y);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: textLabelThemeColors, font: { family: 'DM Sans', size: 10 } }
+          },
+          y: {
+            grid: { color: dynamicGridBorderColor },
+            ticks: {
+              color: textLabelThemeColors,
+              font: { family: 'DM Mono', size: 10 },
+              callbacks: function(value) { return formatCurrency(value); }
+            }
+          }
         }
       }
     });
-  }
 
-  function updateGrowthChart(annual401k, monthlySavings, rate) {
-    const ctx = document.getElementById('growthChart').getContext('2d');
-    const db = getDashboardValues();
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    
-    let currentBalance = db.cash + db.retirement + db.brokerage;
-    const initialBase = currentBalance;
-    const dataPoints = [currentBalance];
-    const labels = ['Now'];
-
-    const totalAnnualContributions = annual401k + (monthlySavings * 12);
-
-    for (let year = 1; year <= 25; year++) {
-      currentBalance = (currentBalance * (1 + rate)) + totalAnnualContributions;
-      dataPoints.push(currentBalance);
-      labels.push(`Yr ${year}`);
-    }
-
-    document.getElementById('fv-display').textContent = fmt(currentBalance);
-    const totalInvesteded = totalAnnualContributions * 25;
-    const compoundGrowthGains = Math.max(0, currentBalance - initialBase - totalInvesteded);
-    document.getElementById('fv-gain').textContent = `Includes ${fmt(compoundGrowthGains)} from interest compounding`;
-
-    if (growthChart) {
-      growthChart.data.labels = labels;
-      growthChart.data.datasets[0].data = dataPoints;
-      updateChartTheme(document.documentElement.getAttribute('data-theme') || 'light');
-      return;
-    }
-
-    growthChart = new Chart(ctx, {
-      type: 'line',
+    const ctxAllocationDonut = document.getElementById('assetDonut').getContext('2d');
+    assetDonut = new Chart(ctxAllocationDonut, {
+      type: 'doughnut',
       data: {
-        labels: labels,
+        labels: ['Cash', 'Retirement', 'Brokerage', 'Property'],
         datasets: [{
-          label: 'Net Worth Estimate',
-          data: dataPoints,
-          borderColor: '#2563eb',
-          backgroundColor: 'rgba(37, 99, 235, 0.05)',
-          fill: true,
-          tension: 0.1,
-          pointRadius: 0
+          data: [state.cash, state.retirement, state.brokerage, state.homeValue],
+          backgroundColor: ['#2563eb', '#0e9f6e', '#d97706', '#7c3aed'],
+          borderWidth: 0
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: isDark ? '#8b949e' : '#9aa3b5', font: { family: 'DM Mono', size: 10 } }, grid: { display: false } },
-          y: { 
-            ticks: { color: isDark ? '#8b949e' : '#9aa3b5', font: { family: 'DM Mono', size: 10 }, callback: value => fmt(value) },
-            grid: { color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)' }
+        cutout: '75%',
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              color: isDarkThemeActive ? '#c9d1d9' : '#0d1117',
+              font: { family: 'DM Sans', size: 11 },
+              boxWidth: 12,
+              padding: 10
+            }
           }
         }
       }
     });
   }
 
-  // Bind Listeners
-  document.querySelectorAll('.card-input, #in-gross, #in-status, #in-401k-pct, #in-match-pct, #in-health-raw, #debt-apr-input').forEach(el => {
-    el.addEventListener('input', calculateEverything);
-    el.addEventListener('change', calculateEverything);
+  // Kickstart Execution Flow Chain on document load lifecycle triggers
+  window.addEventListener('DOMContentLoaded', () => {
+    initializeDashboardInteractions();
+    createVisualCharts();
+    recalculateDashboard();
   });
-
-  const slExpenses = document.getElementById('sl-expenses');
-  const txtExpenses = document.getElementById('txt-expenses');
-  slExpenses.addEventListener('input', (e) => {
-    txtExpenses.value = '$' + parseInt(e.target.value).toLocaleString() + '/mo';
-    calculateEverything();
-  });
-
-  const txtRate = document.getElementById('txt-rate');
-  txtRate.addEventListener('input', () => { calculateEverything(); });
-
-  // Formatting listener blocks for inputs
-  document.querySelectorAll('.card-input, #in-gross, #in-health-raw').forEach(input => {
-    input.addEventListener('blur', (e) => {
-      const val = parseVal(e.target.value);
-      e.target.value = val.toLocaleString();
-    });
-  });
-
-  // Init Execution
-  calculateEverything();
 </script>
 </body>
 </html>

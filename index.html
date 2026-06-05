@@ -1137,9 +1137,10 @@ if (currentDebt > 0) {
     
     let currentCompoundingNW = liquidPortfolioPool;
 
-    let simCash = 0;
+    let simCash = state.cash;
     let simBrokerage = state.brokerage;
     let simRetirement = state.retirement;
+    let simDebt = state.consumerDebt;
 
     function coverMonthlyShortfall(shortfall) {
       let fromCash = Math.min(shortfall, simCash);
@@ -1191,15 +1192,22 @@ if (currentDebt > 0) {
           waterfallActivePhase = 'investing';
         }
 
-if (calculatedSavingsMargin >= 0) {
-  if (waterfallActivePhase === 'investing') {
-    simBrokerage += calculatedSavingsMargin;
-  }
-  simRetirement += (totalInflowEmployer401k / 12);
-} else {
-  // Negative margin = drawing down assets each month; no floor at zero
+// Always add employer 401k match + employee contribution
+simRetirement += (totalInflowEmployer401k / 12);
+
+if (simDebt > 0 && calculatedSavingsMargin > 0) {
+  // Debt phase: surplus goes to paying down debt, not investing
+  let debtInterest = simDebt * monthlyDebtApr;
+  simDebt += debtInterest - calculatedSavingsMargin;
+  if (simDebt < 0) simDebt = 0;
+} else if (simDebt <= 0 && calculatedSavingsMargin > 0) {
+  // Post-debt: surplus goes to brokerage
   simBrokerage += calculatedSavingsMargin;
-  simRetirement += (state.grossIncome * (state.employerMatch / 100) / 12);
+} else if (calculatedSavingsMargin < 0) {
+  // Negative margin: draw down assets
+  simBrokerage += calculatedSavingsMargin;
+  if (simBrokerage < 0) { simCash += simBrokerage; simBrokerage = 0; }
+  if (simCash < 0) simCash = 0;
 }
 
 currentCompoundingNW = simCash + simBrokerage + simRetirement;

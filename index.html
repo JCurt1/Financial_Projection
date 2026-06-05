@@ -1119,126 +1119,88 @@ if (currentDebt > 0) {
     document.getElementById('fi-progress-pct').textContent = Math.min(progressPct, 100).toFixed(1) + '%';
 
     // Coast and Full Financial Independence Horizons Loop
+    let liquidPortfolioPool = state.retirement + state.brokerage;
     let annualYield = state.marketYield / 100;
-    let inflationRate = (state.inflationRate || 3) / 100;
-    let cashYieldAnnual = (state.cashYield || 4) / 100;
-    let debtRate = (state.debtInterestRate || 18) / 100;
-
     let currentSimulationAge = state.initialAge;
-    let targetHorizonAge = 90;
-
+    let targetHorizonAge = 60;
+    
     let labelsCollection = [];
     let trajectoryCollection = [];
-
-    let simCash = state.cash;
-    let simBrokerage = state.brokerage;
-    let simRetirement = state.retirement;
-    let simDebt = state.consumerDebt;
-
-    let monthlyExpensesSim = state.monthlyExpenses;
-
-    let employerMatchMonthly = (state.grossIncome * (state.employerMatch / 100)) / 12;
-
-    let currentCompoundingNW = simCash + simBrokerage + simRetirement - simDebt;
-
-    let absoluteFiAchievedAge = null;
-    let absoluteCoastAchievedAge = null;
+    
+    let currentCompoundingNW = liquidPortfolioPool;
+    
+    // Build Year-by-Year Tracker Matrices for Target Age Charts
+    let loopsTotal = targetHorizonAge - currentSimulationAge;
+    if (loopsTotal <= 0) loopsTotal = 1; // Fallback bound protection logic
 
     labelsCollection.push("Age " + currentSimulationAge);
     trajectoryCollection.push(currentCompoundingNW);
 
-    for (let age = currentSimulationAge; age <= targetHorizonAge; age++) {
+    let calculatedSavingsAccumulator = calculatedSavingsMargin * 12;
+    let totalInflowEmployer401k = (state.grossIncome * (state.employerMatch / 100)) + traditional401k;
+    let realAnnualInvestmentFlow = calculatedSavingsAccumulator + totalInflowEmployer401k;
 
-      for (let month = 0; month < 12; month++) {
+    let simulationMonthsOffset = 0;
+    let absoluteFiAchievedAge = null;
+    let absoluteCoastAchievedAge = null;
 
-        simCash *= (1 + cashYieldAnnual / 12);
-        simBrokerage *= (1 + annualYield / 12);
-        simRetirement *= (1 + annualYield / 12);
-
-        if (simDebt > 0) {
-          simDebt *= (1 + debtRate / 12);
+    for (let currentYearIndex = 1; currentYearIndex <= loopsTotal; currentYearIndex++) {
+      let activeTimelineAge = currentSimulationAge + currentYearIndex;
+      
+      // Calculate matching internal compounding elements monthly to mimic actual timeline loops
+      for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
+        simulationMonthsOffset++;
+        currentCompoundingNW *= (1 + annualYield / 12);
+        
+        let waterfallActivePhase = 'debt';
+        if (
+  state.consumerDebt <= 0 ||
+  (debtCanBePaidOff && simulationMonthsOffset > monthsToDebtFree)
+) {
+  waterfallActivePhase = 'runway';
+}
+        if (emergencyMonths >= 6 || (waterfallActivePhase === 'runway' && (simulationMonthsOffset - monthsToDebtFree) * calculatedSavingsMargin >= neededFor6Mo)) {
+          waterfallActivePhase = 'investing';
         }
 
-        let monthlyCashFlow = calculatedSavingsMargin;
-
-        // Inflation slowly increases expenses.
-        monthlyCashFlow -= (monthlyExpensesSim - state.monthlyExpenses);
-
-        if (monthlyCashFlow >= 0) {
-
-          let surplus = monthlyCashFlow;
-
-          if (simDebt > 0) {
-            let debtPayment = Math.min(surplus, simDebt);
-            simDebt -= debtPayment;
-            surplus -= debtPayment;
-          }
-
-          let emergencyFundTarget = monthlyExpensesSim * 6;
-
-          if (simCash < emergencyFundTarget) {
-            let addCash = Math.min(surplus, emergencyFundTarget - simCash);
-            simCash += addCash;
-            surplus -= addCash;
-          }
-
-          simBrokerage += surplus;
-          simRetirement += employerMatchMonthly;
-
+        if (waterfallActivePhase === 'investing') {
+          currentCompoundingNW += (calculatedSavingsMargin + (totalInflowEmployer401k / 12));
         } else {
+          if (!debtCanBePaidOff) {
 
-          let shortfall = Math.abs(monthlyCashFlow);
+  currentCompoundingNW += (state.grossIncome * (state.employerMatch / 100) / 12);
 
-          let cashUsed = Math.min(shortfall, simCash);
-          simCash -= cashUsed;
-          shortfall -= cashUsed;
+} else {
 
-          if (shortfall > 0) {
-            // Approximate 15% capital-gains drag.
-            let brokerageNeeded = shortfall / 0.85;
-            let brokerageUsed = Math.min(brokerageNeeded, simBrokerage);
-            simBrokerage -= brokerageUsed;
-            shortfall -= brokerageUsed * 0.85;
-          }
+  if (waterfallActivePhase === 'investing') {
+    currentCompoundingNW += (
+      calculatedSavingsMargin +
+      (totalInflowEmployer401k / 12)
+    );
+  } else {
+    currentCompoundingNW += (totalInflowEmployer401k / 12);
+  }
 
-          if (shortfall > 0) {
-            let penaltyFactor = age < 59.5 ? (1 - 0.22 - 0.10) : (1 - 0.22);
-            let retirementNeeded = shortfall / penaltyFactor;
-            let retirementUsed = Math.min(retirementNeeded, simRetirement);
-            simRetirement -= retirementUsed;
-            shortfall -= retirementUsed * penaltyFactor;
-          }
-
-          if (shortfall > 0) {
-            age = targetHorizonAge + 1;
-            break;
-          }
+}
         }
 
-        currentCompoundingNW = simCash + simBrokerage + simRetirement - simDebt;
-
-        let annualSpend = monthlyExpensesSim * 12;
-        let fiTargetDynamic = annualSpend * 25;
-
-        if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetDynamic) {
-          absoluteFiAchievedAge = age;
+        // Test targets dynamically inside running engine loops
+        if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {
+          absoluteFiAchievedAge = activeTimelineAge;
         }
-
-        let yearsTo65 = Math.max(65 - age, 0);
-        let coastTarget = fiTargetDynamic / Math.pow(1 + annualYield, yearsTo65);
-
-        if (!absoluteCoastAchievedAge && currentCompoundingNW >= coastTarget) {
-          absoluteCoastAchievedAge = age;
+        
+        let yearsRemainingTo65 = Math.max(65 - activeTimelineAge, 0);
+        let coastFiRequiredThreshold = fiTargetNumber / Math.pow(1 + annualYield, yearsRemainingTo65);
+        if (!absoluteCoastAchievedAge && currentCompoundingNW >= coastFiRequiredThreshold) {
+          absoluteCoastAchievedAge = activeTimelineAge;
         }
       }
 
-      monthlyExpensesSim *= (1 + inflationRate);
-
-      labelsCollection.push("Age " + age);
+      labelsCollection.push("Age " + activeTimelineAge);
       trajectoryCollection.push(currentCompoundingNW);
     }
 
-// Set interactive visualization text elements
+    // Set interactive visualization text elements
     let terminalNetWorthResult = trajectoryCollection[trajectoryCollection.length - 1];
     document.getElementById('fv-target-label').textContent = `Projected Portfolio at Age ${targetHorizonAge}`;
     document.getElementById('fv-display').textContent = formatCurrency(terminalNetWorthResult);

@@ -875,7 +875,7 @@
   const themeToggle = document.getElementById('theme-toggle');
   const themeIcon = document.getElementById('theme-icon');
   const themeText = document.getElementById('theme-text');
-  let growthChart, assetDonut;
+  let growthChart, assetDonut, drawdownChart;
 
   function updateChartTheme(mode) {
     const isDark = mode === 'dark';
@@ -887,6 +887,12 @@
       growthChart.options.scales.y.ticks.color = labelColor;
       growthChart.options.scales.y.grid.color = gridColor;
       growthChart.update('none');
+    }
+    if (drawdownChart) {
+      drawdownChart.options.scales.x.ticks.color = labelColor;
+      drawdownChart.options.scales.y.ticks.color = labelColor;
+      drawdownChart.options.scales.y.grid.color = gridColor;
+      drawdownChart.update('none');
     }
     if (assetDonut) {
       assetDonut.options.plugins.legend.labels.color = isDark ? '#c9d1d9' : '#0d1117';
@@ -968,14 +974,13 @@
     // Tax Engine Approximation
     let gross = state.grossIncome;
     let traditional401k = gross * (state.deferral401k / 100);
-    traditional401k = Math.min(traditional401k, 23500); // 401k traditional max proxy
+    traditional401k = Math.min(traditional401k, 23500); 
     let preTaxHealth = state.healthCostMonthly * 12;
     
     let standardDeduction = state.filingStatus === 'married' ? 29200 : 14600;
     let taxableIncome = gross - traditional401k - preTaxHealth - standardDeduction;
     if (taxableIncome < 0) taxableIncome = 0;
 
-    // Estimate income tax liabilities bracket step calculations
     let taxEstimate = 0;
     if (state.filingStatus === 'single') {
       if (taxableIncome > 11600) taxEstimate += 11600 * 0.10; else taxEstimate += taxableIncome * 0.10;
@@ -1115,7 +1120,7 @@
     document.getElementById('fi-progress-pct').textContent = Math.min(progressPct, 100).toFixed(1) + '%';
 
     // Coast and Full Financial Independence Horizons Loop
-    let liquidPortfolioPool = state.retirement + state.brokerage - state.consumerDebt; // Corrected starting point to include debt
+    let liquidPortfolioPool = state.retirement + state.brokerage - state.consumerDebt; 
     let annualYield = state.marketYield / 100;
     let currentSimulationAge = state.initialAge;
     let targetHorizonAge = 60;
@@ -1148,7 +1153,6 @@
       for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
         simulationMonthsOffset++;
         
-        // 1. Grow assets monthly by market yield
         simRetirement *= (1 + annualYield / 12);
         simBrokerage *= (1 + annualYield / 12);
         
@@ -1160,10 +1164,8 @@
           waterfallActivePhase = 'investing';
         }
 
-        // 2. Add employer and employee additions monthly
         simRetirement += (totalInflowEmployer401k / 12);
 
-        // 3. Direct the surplus or handles drawdown deficits across available assets
         if (simDebt > 0 && calculatedSavingsMargin > 0) {
           let debtInterest = simDebt * monthlyDebtApr;
           simDebt += debtInterest - calculatedSavingsMargin;
@@ -1174,9 +1176,8 @@
         } else if (simDebt <= 0 && calculatedSavingsMargin > 0) {
           simBrokerage += calculatedSavingsMargin;
         } else if (calculatedSavingsMargin < 0) {
-          let remainingDeficit = calculatedSavingsMargin; // This is a negative value
+          let remainingDeficit = calculatedSavingsMargin; 
           
-          // Drain brokerage first
           simBrokerage += remainingDeficit;
           if (simBrokerage < 0) {
             remainingDeficit = simBrokerage; 
@@ -1185,7 +1186,6 @@
             remainingDeficit = 0;
           }
           
-          // Drain cash second
           if (remainingDeficit < 0) {
             simCash += remainingDeficit;
             if (simCash < 0) {
@@ -1196,19 +1196,16 @@
             }
           }
           
-          // Force drain from retirement last if completely dry
           if (remainingDeficit < 0) {
             simRetirement += remainingDeficit;
             if (simRetirement < 0) simRetirement = 0; 
           }
         }
         
-        // If your margin is negative or zero and doesn't fully cover debt interest, accumulate debt
         if (simDebt > 0 && calculatedSavingsMargin <= 0) {
           simDebt += (simDebt * monthlyDebtApr);
         }
 
-        // 4. Corrected Math Engine: Net Worth must subtract current running debt balance
         currentCompoundingNW = simCash + simBrokerage + simRetirement - simDebt;
 
         if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {
@@ -1232,6 +1229,38 @@
     
     let compoundingGrowthGain = terminalNetWorthResult - liquidPortfolioPool;
     document.getElementById('fv-gain').textContent = `+${formatCurrency(compoundingGrowthGain)} in capital generation growth`;
+
+    // ── FIXED COLD MATH ENGINE: AGE 60-90 RETIREMENT DRAWDOWN ──
+    let drawdownLabels = [];
+    let drawdownTrajectory = [];
+    
+    let drawPool = Math.max(terminalNetWorthResult, 0);
+    let initialWithdrawalAmount = drawPool * 0.04; 
+    let currentYearlyWithdrawal = initialWithdrawalAmount;
+    const assumedDrawdownGrowthRate = 0.05; // Locked to 5% growth/year
+    const standardInflationMultiplier = 0.03; // Adjusts cost of living up by 3%/year
+
+    drawdownLabels.push("Age 60");
+    drawdownTrajectory.push(drawPool);
+
+    for (let currentAgeTracker = 61; currentAgeTracker <= 90; currentAgeTracker++) {
+      if (drawPool > 0) {
+        // Step 1: Portfolio achieves exactly 5% annual growth
+        drawPool *= (1 + assumedDrawdownGrowthRate);
+        
+        // Step 2: Inflate the structural living expense requirement by 3%
+        currentYearlyWithdrawal *= (1 + standardInflationMultiplier);
+        
+        // Step 3: Extract the inflated requirement from principal
+        drawPool -= currentYearlyWithdrawal;
+        if (drawPool < 0) drawPool = 0;
+      } else {
+        drawPool = 0;
+      }
+
+      drawdownLabels.push("Age " + currentAgeTracker);
+      drawdownTrajectory.push(drawPool);
+    }
 
     // Process Timeline Milestone Display Status Blocks
     let coastNode = document.getElementById('node-coast');
@@ -1288,6 +1317,12 @@
       growthChart.data.labels = labelsCollection;
       growthChart.data.datasets[0].data = trajectoryCollection;
       growthChart.update();
+    }
+
+    if (drawdownChart) {
+      drawdownChart.data.labels = drawdownLabels;
+      drawdownChart.data.datasets[0].data = drawdownTrajectory;
+      drawdownChart.update();
     }
 
     if (assetDonut) {
@@ -1391,7 +1426,7 @@
       data: {
         labels: [],
         datasets: [{
-          label: 'Projected True Liquid Assets Portfolio',
+          label: 'Accumulation Phase',
           data: [],
           borderColor: '#2563eb',
           backgroundColor: 'rgba(37, 99, 235, 0.04)',
@@ -1410,26 +1445,62 @@
           tooltip: {
             mode: 'index',
             intersect: false,
-            callbacks: {
-              label: function(context) {
-                return ' ' + context.dataset.label + ': ' + formatCurrency(context.parsed.y);
-              }
-            }
+            callbacks: { label: function(context) { return ' Balance: ' + formatCurrency(context.parsed.y); } }
           }
         },
         scales: {
-          x: {
-            grid: { display: false },
-            ticks: { color: textLabelThemeColors, font: { family: 'DM Sans', size: 10 } }
-          },
-          y: {
-            grid: { color: dynamicGridBorderColor },
-            ticks: {
-              color: textLabelThemeColors,
-              font: { family: 'DM Mono', size: 10 },
-              callbacks: function(value) { return formatCurrency(value); }
-            }
+          x: { grid: { display: false }, ticks: { color: textLabelThemeColors, font: { family: 'DM Sans', size: 10 } } },
+          y: { grid: { color: dynamicGridBorderColor }, ticks: { color: textLabelThemeColors, font: { family: 'DM Mono', size: 10 }, callbacks: function(value) { return formatCurrency(value); } } }
+        }
+      }
+    });
+
+    // Safe Multi-render Check: Find or create the drawdown display architecture container layout
+    let ddWrapper = document.getElementById('drawdown-container-block');
+    if (!ddWrapper) {
+      const initialChartWrapper = document.getElementById('growthChart').parentElement;
+      ddWrapper = document.createElement('div');
+      ddWrapper.id = 'drawdown-container-block';
+      ddWrapper.style.height = '240px';
+      ddWrapper.style.marginTop = '24px';
+      ddWrapper.innerHTML = `
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-main);">Age 60-90 Retirement Drawdown Timeline (5% Growth, 4% Initial Rule + 3% Inflation)</p>
+        <div style="height: 200px; position: relative;"><canvas id="drawdownChart"></canvas></div>
+      `;
+      initialChartWrapper.parentElement.appendChild(ddWrapper);
+    }
+
+    const ctxDrawdown = document.getElementById('drawdownChart').getContext('2d');
+    drawdownChart = new Chart(ctxDrawdown, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Drawdown Phase',
+          data: [],
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.04)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.15
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: { label: function(context) { return ' Capital: ' + formatCurrency(context.parsed.y); } }
           }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: textLabelThemeColors, font: { family: 'DM Sans', size: 10 } } },
+          y: { grid: { color: dynamicGridBorderColor }, ticks: { color: textLabelThemeColors, font: { family: 'DM Mono', size: 10 }, callbacks: function(value) { return formatCurrency(value); } } }
         }
       }
     });

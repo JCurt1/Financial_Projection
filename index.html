@@ -1119,10 +1119,10 @@ if (currentDebt > 0) {
     document.getElementById('fi-progress-pct').textContent = Math.min(progressPct, 100).toFixed(1) + '%';
 
     // Coast and Full Financial Independence Horizons Loop
-    let annualYield = state.marketYield / 100;
-    let inflationRate = (state.inflationRate || 0.03);
-    let cashYield = (state.cashYield || 0.04);
-    let debtRate = ((state.debtInterestRate || 18) / 100);
+    const annualYield = state.marketYield / 100;
+    const inflationRate = (state.inflationRate || 3) / 100;
+    const cashYield = (state.cashYield || 4) / 100;
+    const debtRate = (state.debtInterestRate || 18) / 100;
 
     let labelsCollection = [];
     let trajectoryCollection = [];
@@ -1132,19 +1132,24 @@ if (currentDebt > 0) {
     let simRetirement = state.retirement;
     let simDebt = state.consumerDebt;
 
-    let currentAge = state.initialAge;
-    let targetHorizonAge = 95;
-    let retirementAge = state.retirementAge || 65;
-    let monthlySpend = state.monthlyExpenses;
+    const currentAge = state.initialAge;
+    const targetHorizonAge = 95;
+    const retirementAge = state.retirementAge || 65;
 
-    let employerMatchMonthly = (state.grossIncome * (state.employerMatch / 100)) / 12;
+    let annualExpenses = state.monthlyExpenses * 12;
+
+    let totalNW = simCash + simBrokerage + simRetirement - simDebt;
+
+    labelsCollection.push("Age " + currentAge);
+    trajectoryCollection.push(totalNW);
 
     let absoluteFiAchievedAge = null;
     let absoluteCoastAchievedAge = null;
 
-    for (let age = currentAge; age <= targetHorizonAge; age++) {
+    const monthlyEmployerMatch =
+      (state.grossIncome * (state.employerMatch / 100)) / 12;
 
-      labelsCollection.push("Age " + age);
+    for (let age = currentAge + 1; age <= targetHorizonAge; age++) {
 
       for (let month = 0; month < 12; month++) {
 
@@ -1156,82 +1161,74 @@ if (currentDebt > 0) {
           simDebt *= (1 + debtRate / 12);
         }
 
-        let monthlyNetCashflow = calculatedSavingsMargin;
+        let monthlyFlow;
 
-        if (age >= retirementAge) {
-          monthlyNetCashflow = -monthlySpend;
+        if (age < retirementAge) {
+          monthlyFlow = calculatedSavingsMargin;
+          simRetirement += monthlyEmployerMatch;
+        } else {
+          monthlyFlow = -(annualExpenses / 12);
         }
 
-        if (monthlyNetCashflow >= 0) {
+        if (monthlyFlow > 0) {
 
-          let surplus = monthlyNetCashflow;
+          let surplus = monthlyFlow;
 
           if (simDebt > 0) {
-            let debtPay = Math.min(surplus, simDebt);
-            simDebt -= debtPay;
-            surplus -= debtPay;
+            let paydown = Math.min(surplus, simDebt);
+            simDebt -= paydown;
+            surplus -= paydown;
           }
 
-          let emergencyFundTarget = monthlySpend * 6;
+          const efTarget = annualExpenses / 2;
 
-          if (simCash < emergencyFundTarget) {
-            let cashAdd = Math.min(surplus, emergencyFundTarget - simCash);
-            simCash += cashAdd;
-            surplus -= cashAdd;
+          if (simCash < efTarget) {
+            let addCash = Math.min(surplus, efTarget - simCash);
+            simCash += addCash;
+            surplus -= addCash;
           }
 
           simBrokerage += surplus;
 
-          if (age < retirementAge) {
-            simRetirement += employerMatchMonthly;
-          }
+        } else if (monthlyFlow < 0) {
 
-        } else {
+          let need = Math.abs(monthlyFlow);
 
-          let need = Math.abs(monthlyNetCashflow);
+          let fromCash = Math.min(need, simCash);
+          simCash -= fromCash;
+          need -= fromCash;
 
-          let cashUsed = Math.min(need, simCash);
-          simCash -= cashUsed;
-          need -= cashUsed;
-
-          if (need > 0) {
-            let brokerageGross = need / 0.85;
-            let brokerageUsed = Math.min(brokerageGross, simBrokerage);
-            simBrokerage -= brokerageUsed;
-            need -= brokerageUsed * 0.85;
-          }
+          let fromBrokerage = Math.min(need / 0.85, simBrokerage);
+          simBrokerage -= fromBrokerage;
+          need -= fromBrokerage * 0.85;
 
           if (need > 0) {
-            let netFactor = age < 59.5 ? 0.68 : 0.78;
-            let retirementGross = need / netFactor;
-            let retirementUsed = Math.min(retirementGross, simRetirement);
-            simRetirement -= retirementUsed;
-            need -= retirementUsed * netFactor;
-          }
-
-          if (need > 0) {
-            break;
+            const withdrawalFactor = age < 59.5 ? 0.68 : 0.78;
+            let fromRet = Math.min(need / withdrawalFactor, simRetirement);
+            simRetirement -= fromRet;
+            need -= fromRet * withdrawalFactor;
           }
         }
       }
 
-      monthlySpend *= (1 + inflationRate);
+      annualExpenses *= (1 + inflationRate);
 
-      let totalNW = simCash + simBrokerage + simRetirement - simDebt;
+      totalNW = simCash + simBrokerage + simRetirement - simDebt;
 
-      let fiTarget = monthlySpend * 12 * 25;
+      const fiTarget = annualExpenses * 25;
 
       if (!absoluteFiAchievedAge && totalNW >= fiTarget) {
         absoluteFiAchievedAge = age;
       }
 
-      let yearsToRetirement = Math.max(retirementAge - age, 0);
-      let coastTarget = fiTarget / Math.pow(1 + annualYield, yearsToRetirement);
+      const yearsToRetirement = Math.max(retirementAge - age, 0);
+      const coastTarget = fiTarget / Math.pow(1 + annualYield, yearsToRetirement);
 
       if (!absoluteCoastAchievedAge && totalNW >= coastTarget) {
         absoluteCoastAchievedAge = age;
       }
 
+      labelsCollection.push("Age " + age);
       trajectoryCollection.push(totalNW);
     }
 

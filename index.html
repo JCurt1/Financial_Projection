@@ -1133,6 +1133,7 @@ if (currentDebt > 0) {
     let simDebt = state.consumerDebt;
 
     let currentAge = state.initialAge;
+    let targetHorizonAge = 95;
     let retirementAge = state.retirementAge || 65;
     let monthlySpend = state.monthlyExpenses;
 
@@ -1141,7 +1142,7 @@ if (currentDebt > 0) {
     let absoluteFiAchievedAge = null;
     let absoluteCoastAchievedAge = null;
 
-    for (let age = currentAge; age <= 95; age++) {
+    for (let age = currentAge; age <= targetHorizonAge; age++) {
 
       labelsCollection.push("Age " + age);
 

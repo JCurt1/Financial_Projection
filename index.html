@@ -1115,7 +1115,7 @@
     document.getElementById('fi-progress-pct').textContent = Math.min(progressPct, 100).toFixed(1) + '%';
 
     // Coast and Full Financial Independence Horizons Loop
-    let liquidPortfolioPool = state.retirement + state.brokerage;
+    let liquidPortfolioPool = state.retirement + state.brokerage - state.consumerDebt; // Corrected starting point to include debt
     let annualYield = state.marketYield / 100;
     let currentSimulationAge = state.initialAge;
     let targetHorizonAge = 60;
@@ -1202,8 +1202,14 @@
             if (simRetirement < 0) simRetirement = 0; 
           }
         }
+        
+        // If your margin is negative or zero and doesn't fully cover debt interest, accumulate debt
+        if (simDebt > 0 && calculatedSavingsMargin <= 0) {
+          simDebt += (simDebt * monthlyDebtApr);
+        }
 
-        currentCompoundingNW = simCash + simBrokerage + simRetirement;
+        // 4. Corrected Math Engine: Net Worth must subtract current running debt balance
+        currentCompoundingNW = simCash + simBrokerage + simRetirement - simDebt;
 
         if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {
           absoluteFiAchievedAge = activeTimelineAge;

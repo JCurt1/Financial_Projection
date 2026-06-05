@@ -1007,9 +1007,17 @@
     }
 
     let calculatedSavingsMargin = baseTakehome - state.monthlyExpenses;
-    if (calculatedSavingsMargin < 0) calculatedSavingsMargin = 0;
-    document.getElementById('cf-surplus').textContent = formatCurrency(calculatedSavingsMargin) + '/mo';
-    document.getElementById('cf-surplus-box').style.borderLeftColor = calculatedSavingsMargin > 0 ? 'var(--green)' : 'var(--red)';
+
+    const surplusEl = document.getElementById('cf-surplus');
+    const surplusBox = document.getElementById('cf-surplus-box');
+
+    surplusEl.textContent =
+      (calculatedSavingsMargin < 0 ? '-' : '') +
+      formatCurrency(Math.abs(calculatedSavingsMargin)) +
+      '/mo';
+
+    surplusEl.style.color = calculatedSavingsMargin >= 0 ? 'var(--green)' : 'var(--red)';
+    surplusBox.style.borderLeftColor = calculatedSavingsMargin >= 0 ? 'var(--green)' : 'var(--red)';
 
     // Debt Free Projection Trackers
     let currentDebt = state.consumerDebt;
@@ -1128,6 +1136,26 @@ if (currentDebt > 0) {
     let trajectoryCollection = [];
     
     let currentCompoundingNW = liquidPortfolioPool;
+
+    let simCash = 0;
+    let simBrokerage = state.brokerage;
+    let simRetirement = state.retirement;
+
+    function coverMonthlyShortfall(shortfall) {
+      let fromCash = Math.min(shortfall, simCash);
+      simCash -= fromCash;
+      shortfall -= fromCash;
+
+      let fromBrokerage = Math.min(shortfall, simBrokerage);
+      simBrokerage -= fromBrokerage;
+      shortfall -= fromBrokerage;
+
+      let fromRetirement = Math.min(shortfall, simRetirement);
+      simRetirement -= fromRetirement;
+      shortfall -= fromRetirement;
+
+      return shortfall <= 0;
+    }
     
     // Build Year-by-Year Tracker Matrices for Target Age Charts
     let loopsTotal = targetHorizonAge - currentSimulationAge;
@@ -1163,26 +1191,30 @@ if (currentDebt > 0) {
           waterfallActivePhase = 'investing';
         }
 
-        if (waterfallActivePhase === 'investing') {
-          currentCompoundingNW += (calculatedSavingsMargin + (totalInflowEmployer401k / 12));
+        if (calculatedSavingsMargin >= 0) {
+
+          if (waterfallActivePhase === 'investing') {
+            simBrokerage += calculatedSavingsMargin;
+          }
+
+          simRetirement += (totalInflowEmployer401k / 12);
+
         } else {
-          if (!debtCanBePaidOff) {
 
-  currentCompoundingNW += (state.grossIncome * (state.employerMatch / 100) / 12);
+          let shortfall = Math.abs(calculatedSavingsMargin);
 
-} else {
+          if (!coverMonthlyShortfall(shortfall)) {
+            absoluteFiAchievedAge = null;
+            break;
+          }
 
-  if (waterfallActivePhase === 'investing') {
-    currentCompoundingNW += (
-      calculatedSavingsMargin +
-      (totalInflowEmployer401k / 12)
-    );
-  } else {
-    currentCompoundingNW += (totalInflowEmployer401k / 12);
-  }
-
-}
+          simRetirement += (state.grossIncome * (state.employerMatch / 100) / 12);
         }
+
+        currentCompoundingNW =
+          simCash +
+          simBrokerage +
+          simRetirement;
 
         // Test targets dynamically inside running engine loops
         if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {

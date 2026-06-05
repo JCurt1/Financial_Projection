@@ -1022,39 +1022,27 @@
     // Debt Free Projection Trackers
     let currentDebt = state.consumerDebt;
     let monthlyDebtPayment = calculatedSavingsMargin;
-   let monthsToDebtFree = 0;
-let totalDebtInterestFriction = 0;
-let monthlyDebtApr = (state.debtApr / 100) / 12;
-let debtCanBePaidOff = true;
-
-if (currentDebt > 0) {
-
-  // payment doesn't even cover interest
-  if (
-    monthlyDebtPayment <= 0 ||
-    monthlyDebtPayment <= currentDebt * monthlyDebtApr
-  ) {
-
-    debtCanBePaidOff = false;
-
-  } else {
-
-    while (currentDebt > 0 && monthsToDebtFree < 600) {
-      const interestAccrual = currentDebt * monthlyDebtApr;
-
-      totalDebtInterestFriction += interestAccrual;
-      currentDebt += interestAccrual - monthlyDebtPayment;
-
-      monthsToDebtFree++;
-
-      if (currentDebt <= 0) break;
-    }
+    let monthsToDebtFree = 0;
+    let totalDebtInterestFriction = 0;
+    let monthlyDebtApr = (state.debtApr / 100) / 12;
+    let debtCanBePaidOff = true;
 
     if (currentDebt > 0) {
-      debtCanBePaidOff = false;
+      if (monthlyDebtPayment <= 0 || monthlyDebtPayment <= currentDebt * monthlyDebtApr) {
+        debtCanBePaidOff = false;
+      } else {
+        while (currentDebt > 0 && monthsToDebtFree < 600) {
+          const interestAccrual = currentDebt * monthlyDebtApr;
+          totalDebtInterestFriction += interestAccrual;
+          currentDebt += interestAccrual - monthlyDebtPayment;
+          monthsToDebtFree++;
+          if (currentDebt <= 0) break;
+        }
+        if (currentDebt > 0) {
+          debtCanBePaidOff = false;
+        }
+      }
     }
-  }
-}
 
     let today = new Date();
     let debtFreeDateStr = '—';
@@ -1105,7 +1093,7 @@ if (currentDebt > 0) {
     } else {
       runwayNode.className = 'timeline-node phase-runway active';
       runwayStatus.textContent = 'Seeding';
-     if (calculatedSavingsMargin > 0 && debtCanBePaidOff) {
+      if (calculatedSavingsMargin > 0 && debtCanBePaidOff) {
         let monthsToBuildRunway = Math.ceil(neededFor6Mo / calculatedSavingsMargin) + (state.consumerDebt > 0 ? monthsToDebtFree : 0);
         let runwayTargetDate = new Date();
         runwayTargetDate.setMonth(today.getMonth() + monthsToBuildRunway);
@@ -1141,33 +1129,14 @@ if (currentDebt > 0) {
     let simBrokerage = state.brokerage;
     let simRetirement = state.retirement;
     let simDebt = state.consumerDebt;
-
-    function coverMonthlyShortfall(shortfall) {
-      let fromCash = Math.min(shortfall, simCash);
-      simCash -= fromCash;
-      shortfall -= fromCash;
-
-      let fromBrokerage = Math.min(shortfall, simBrokerage);
-      simBrokerage -= fromBrokerage;
-      shortfall -= fromBrokerage;
-
-      let fromRetirement = Math.min(shortfall, simRetirement);
-      simRetirement -= fromRetirement;
-      shortfall -= fromRetirement;
-
-      return shortfall <= 0;
-    }
     
-    // Build Year-by-Year Tracker Matrices for Target Age Charts
     let loopsTotal = targetHorizonAge - currentSimulationAge;
-    if (loopsTotal <= 0) loopsTotal = 1; // Fallback bound protection logic
+    if (loopsTotal <= 0) loopsTotal = 1;
 
     labelsCollection.push("Age " + currentSimulationAge);
     trajectoryCollection.push(currentCompoundingNW);
 
-    let calculatedSavingsAccumulator = calculatedSavingsMargin * 12;
     let totalInflowEmployer401k = (state.grossIncome * (state.employerMatch / 100)) + traditional401k;
-    let realAnnualInvestmentFlow = calculatedSavingsAccumulator + totalInflowEmployer401k;
 
     let simulationMonthsOffset = 0;
     let absoluteFiAchievedAge = null;
@@ -1176,43 +1145,41 @@ if (currentDebt > 0) {
     for (let currentYearIndex = 1; currentYearIndex <= loopsTotal; currentYearIndex++) {
       let activeTimelineAge = currentSimulationAge + currentYearIndex;
       
-      // Calculate matching internal compounding elements monthly to mimic actual timeline loops
       for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
         simulationMonthsOffset++;
-        currentCompoundingNW *= (1 + annualYield / 12);
+        
+        // Corrected Math: Grow assets monthly by market yield
+        simRetirement *= (1 + annualYield / 12);
+        simBrokerage *= (1 + annualYield / 12);
         
         let waterfallActivePhase = 'debt';
-        if (
-  state.consumerDebt <= 0 ||
-  (debtCanBePaidOff && simulationMonthsOffset > monthsToDebtFree)
-) {
-  waterfallActivePhase = 'runway';
-}
+        if (state.consumerDebt <= 0 || (debtCanBePaidOff && simulationMonthsOffset > monthsToDebtFree)) {
+          waterfallActivePhase = 'runway';
+        }
         if (emergencyMonths >= 6 || (waterfallActivePhase === 'runway' && (simulationMonthsOffset - monthsToDebtFree) * calculatedSavingsMargin >= neededFor6Mo)) {
           waterfallActivePhase = 'investing';
         }
 
-// Always add employer 401k match + employee contribution
-simRetirement += (totalInflowEmployer401k / 12);
+        // Add employer and employee additions monthly
+        simRetirement += (totalInflowEmployer401k / 12);
 
-if (simDebt > 0 && calculatedSavingsMargin > 0) {
-  // Debt phase: surplus goes to paying down debt, not investing
-  let debtInterest = simDebt * monthlyDebtApr;
-  simDebt += debtInterest - calculatedSavingsMargin;
-  if (simDebt < 0) simDebt = 0;
-} else if (simDebt <= 0 && calculatedSavingsMargin > 0) {
-  // Post-debt: surplus goes to brokerage
-  simBrokerage += calculatedSavingsMargin;
-} else if (calculatedSavingsMargin < 0) {
-  // Negative margin: draw down assets
-  simBrokerage += calculatedSavingsMargin;
-  if (simBrokerage < 0) { simCash += simBrokerage; simBrokerage = 0; }
-  if (simCash < 0) simCash = 0;
-}
+        if (simDebt > 0 && calculatedSavingsMargin > 0) {
+          let debtInterest = simDebt * monthlyDebtApr;
+          simDebt += debtInterest - calculatedSavingsMargin;
+          if (simDebt < 0) {
+            simBrokerage += Math.abs(simDebt);
+            simDebt = 0;
+          }
+        } else if (simDebt <= 0 && calculatedSavingsMargin > 0) {
+          simBrokerage += calculatedSavingsMargin;
+        } else if (calculatedSavingsMargin < 0) {
+          simBrokerage += calculatedSavingsMargin;
+          if (simBrokerage < 0) { simCash += simBrokerage; simBrokerage = 0; }
+          if (simCash < 0) simCash = 0;
+        }
 
-currentCompoundingNW = simCash + simBrokerage + simRetirement;
+        currentCompoundingNW = simCash + simBrokerage + simRetirement;
 
-        // Test targets dynamically inside running engine loops
         if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {
           absoluteFiAchievedAge = activeTimelineAge;
         }
@@ -1228,7 +1195,6 @@ currentCompoundingNW = simCash + simBrokerage + simRetirement;
       trajectoryCollection.push(currentCompoundingNW);
     }
 
-    // Set interactive visualization text elements
     let terminalNetWorthResult = trajectoryCollection[trajectoryCollection.length - 1];
     document.getElementById('fv-target-label').textContent = `Projected Portfolio at Age ${targetHorizonAge}`;
     document.getElementById('fv-display').textContent = formatCurrency(terminalNetWorthResult);
@@ -1279,7 +1245,6 @@ currentCompoundingNW = simCash + simBrokerage + simRetirement;
       document.getElementById('fi-freedom-date').textContent = 'Out of Bounds';
     }
 
-    // Home Equity Calc Metrics
     let equityVal = state.homeValue - state.mortgage;
     document.getElementById('metric-home-equity').textContent = formatCurrency(equityVal);
     
@@ -1288,7 +1253,6 @@ currentCompoundingNW = simCash + simBrokerage + simRetirement;
     ratioTextElem.textContent = safetyDebtAssetPercentage.toFixed(1) + '%';
     if (safetyDebtAssetPercentage > 40) ratioTextElem.className = 'metric-value warning'; else ratioTextElem.className = 'metric-value good';
 
-    // Synchronize Chart Datasets Smoothly
     if (growthChart) {
       growthChart.data.labels = labelsCollection;
       growthChart.data.datasets[0].data = trajectoryCollection;
@@ -1303,7 +1267,6 @@ currentCompoundingNW = simCash + simBrokerage + simRetirement;
 
   // Bind Listeners
   function initializeDashboardInteractions() {
-    // Dynamic Balance Sheet Input Updates
     document.querySelectorAll('#cards .asset-card').forEach(card => {
       let key = card.getAttribute('data-key');
       let input = card.querySelector('.card-input');
@@ -1320,7 +1283,6 @@ currentCompoundingNW = simCash + simBrokerage + simRetirement;
       });
     });
 
-    // Income Flow Block Inputs Validation Listeners
     const bindSyncInput = (elemId, stateKey, isPercent = false) => {
       let element = document.getElementById(elemId);
       element.addEventListener('blur', () => {
@@ -1343,7 +1305,6 @@ currentCompoundingNW = simCash + simBrokerage + simRetirement;
       recalculateDashboard();
     });
 
-    // Synchronize slider and tracking elements inputs
     let sliderExpenses = document.getElementById('sl-expenses');
     let textExpenses = document.getElementById('txt-expenses');
 
@@ -1364,7 +1325,6 @@ currentCompoundingNW = simCash + simBrokerage + simRetirement;
     });
     textExpenses.addEventListener('keydown', (e) => { if (e.key === 'Enter') textExpenses.blur(); });
 
-    // Yield rate update parameters hooks
     let yieldRateTextInput = document.getElementById('txt-rate');
     yieldRateTextInput.addEventListener('blur', () => {
       let validatedYieldNum = parseFloat(yieldRateTextInput.value);
@@ -1377,12 +1337,11 @@ currentCompoundingNW = simCash + simBrokerage + simRetirement;
     });
     yieldRateTextInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') yieldRateTextInput.blur(); });
 
-    // Initial Age Update Handler
     let initialAgeTextInput = document.getElementById('txt-age');
     initialAgeTextInput.addEventListener('blur', () => {
       let validatedAgeNum = parseInt(initialAgeTextInput.value);
       if (isNaN(validatedAgeNum) || validatedAgeNum < 18) validatedAgeNum = 18;
-      if (validatedAgeNum >= 60) validatedAgeNum = 59; // Cap input underneath target threshold boundaries
+      if (validatedAgeNum >= 60) validatedAgeNum = 59;
       state.initialAge = validatedAgeNum;
       initialAgeTextInput.value = validatedAgeNum;
       recalculateDashboard();
@@ -1390,7 +1349,6 @@ currentCompoundingNW = simCash + simBrokerage + simRetirement;
     initialAgeTextInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') initialAgeTextInput.blur(); });
   }
 
-  // Create Chart Components Initializations Hooks
   function createVisualCharts() {
     const ctxCompounding = document.getElementById('growthChart').getContext('2d');
     const isDarkThemeActive = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -1475,7 +1433,6 @@ currentCompoundingNW = simCash + simBrokerage + simRetirement;
     });
   }
 
-  // Kickstart Execution Flow Chain on document load lifecycle triggers
   window.addEventListener('DOMContentLoaded', () => {
     initializeDashboardInteractions();
     createVisualCharts();

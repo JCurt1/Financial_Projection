@@ -1139,6 +1139,18 @@ if (currentDebt > 0) {
     labelsCollection.push("Age " + currentSimulationAge);
     trajectoryCollection.push(currentCompoundingNW);
 
+    // Realistic simulation assumptions:
+    // - Debt accrues interest monthly
+    // - Cash earns HYSA yield (if state.cashYield exists, otherwise 4%)
+    // - Brokerage withdrawals incur capital-gains tax drag (default 15%)
+    // - Retirement withdrawals before age 59.5 incur 10% penalty plus tax drag
+    // - Employee 401(k) contributions stop automatically during deficit periods
+
+    let cashYieldAnnual = (state.cashYield || 4) / 100;
+    let brokerageWithdrawalTax = 0.15;
+    let retirementEarlyPenalty = 0.10;
+    let retirementWithdrawalTax = 0.22;
+
     let employerMatchMonthly = (state.grossIncome * (state.employerMatch / 100)) / 12;
 
     let simulationMonthsOffset = 0;
@@ -1151,8 +1163,13 @@ if (currentDebt > 0) {
       for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
         simulationMonthsOffset++;
 
+        simCash *= (1 + cashYieldAnnual / 12);
         simBrokerage *= (1 + annualYield / 12);
         simRetirement *= (1 + annualYield / 12);
+
+        if (simDebt > 0) {
+          simDebt *= (1 + (state.debtInterestRate || 18) / 100 / 12);
+        }
 
         if (calculatedSavingsMargin >= 0) {
 

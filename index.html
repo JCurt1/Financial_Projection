@@ -242,7 +242,7 @@
 
   .income-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 16px;
     margin-top: 10px;
   }
@@ -282,6 +282,31 @@
     font-weight: 500;
   }
   .income-field-wrap input.mono-type { font-family: 'DM Mono', monospace; }
+
+  /* Premium Selection Tier Toggles */
+  .tier-toggle-row {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .tier-btn {
+    flex: 1;
+    background: var(--surface-2);
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 4px 2px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+  }
+  .tier-btn.active {
+    background: var(--blue-light);
+    border-color: var(--blue);
+    color: var(--blue);
+  }
 
   .cashflow-summary {
     display: flex;
@@ -601,7 +626,7 @@
         <label for="in-gross">Gross Annual Pay</label>
         <div class="income-field-wrap">
           <span>$</span>
-          <input type="text" id="in-gross" class="mono-type" value="60,000" />
+          <input type="text" id="in-gross" class="mono-type" value="150,000" />
         </div>
       </div>
       <div class="income-input-group">
@@ -614,19 +639,46 @@
         </div>
       </div>
       <div class="income-input-group">
-        <label for="in-deductions">Pre-Tax Deductions (401k, Health)</label>
+        <label for="in-401k-pct">Your 401(k) Deferral</label>
         <div class="income-field-wrap">
-          <span>$</span>
-          <input type="text" id="in-deductions" class="mono-type" value="3,000" />
+          <input type="text" id="in-401k-pct" class="mono-type" value="15" style="text-align: right; padding-right: 4px;" />
+          <span>%</span>
         </div>
       </div>
+      <div class="income-input-group">
+        <label for="in-match-pct">Employer Match</label>
+        <div class="income-field-wrap">
+          <input type="text" id="in-match-pct" class="mono-type" value="4" style="text-align: right; padding-right: 4px;" />
+          <span>%</span>
+        </div>
+      </div>
+      <div class="income-input-group">
+        <label for="in-health-raw">Monthly Health Cost</label>
+        <div class="income-field-wrap">
+          <span>$</span>
+          <input type="text" id="in-health-raw" class="mono-type" value="150" />
+        </div>
+        <div class="tier-toggle-row">
+          <button class="tier-btn active" id="tier-single" onclick="setHealthTier('single', 150)">Single</button>
+          <button class="tier-btn" id="tier-spouse" onclick="setHealthTier('spouse', 450)">Spouse</button>
+          <button class="tier-btn" id="tier-family" onclick="setHealthTier('family', 650)">Family</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Cash Flow Metrics Row -->
+    <div class="income-grid" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
       <div class="cashflow-summary" style="border-left-color: var(--blue);">
-        <span class="cf-label">Est. Monthly Tax (Inc FICA)</span>
+        <span class="cf-label">Est. Avg Monthly Tax</span>
         <span class="cf-val" style="color: var(--blue);" id="cf-tax-withheld">$0/mo</span>
       </div>
       <div class="cashflow-summary" style="border-left-color: var(--purple);">
-        <span class="cf-label">Net Take-Home Pay</span>
+        <span class="cf-label">Base Take-Home Pay</span>
         <span class="cf-val" style="color: var(--purple);" id="cf-takehome">$0/mo</span>
+      </div>
+      <div class="cashflow-summary" style="border-left-color: var(--amber);" id="maxout-alert-box">
+        <span class="cf-label">401(k) Max-Out Target</span>
+        <span class="cf-val" style="color: var(--amber);" id="cf-maxout-status">Full Year</span>
       </div>
       <div class="cashflow-summary" id="cf-surplus-box" style="border-left-color: var(--green);">
         <span class="cf-label">Net Savings Margin</span>
@@ -662,7 +714,7 @@
         <div class="timeline-meta">
           <div class="timeline-title">Coast FI</div>
           <div class="timeline-status" id="status-coast">Locked</div>
-          <div class="timeline-date" id="date-coast">Age 45</div>
+          <div class="timeline-date" id="date-coast">—</div>
         </div>
       </div>
 
@@ -782,7 +834,7 @@
       <div class="diag-header-row">
         <p class="section-label" style="margin-top: 0; margin-bottom: 0;">Tethered Wealth Compounding Engine</p>
         <div class="diag-rate-wrap">
-          <label for="sl-rate">Market Yield:</label>
+          <label for="txt-rate">Market Yield:</label>
           <input type="text" id="txt-rate" value="7.0" style="width: 24px;" />
           <span>%</span>
         </div>
@@ -817,6 +869,7 @@
   const themeToggle = document.getElementById('theme-toggle');
   const themeIcon = document.getElementById('theme-icon');
   const themeText = document.getElementById('theme-text');
+  let growthChart, assetDonut;
 
   function updateChartTheme(mode) {
     const isDark = mode === 'dark';
@@ -851,11 +904,19 @@
   });
 
   // Math Parsers
-  function parseVal(str) { return parseFloat(str.replace(/[^0-9.]/g, '')) || 0; }
+  function parseVal(str) { return parseFloat(str.toString().replace(/[^0-9.]/g, '')) || 0; }
   function fmt(n) {
     if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
     if (n <= -1e6) return '-$' + (Math.abs(n) / 1e6).toFixed(2) + 'M';
     return (n < 0 ? '-' : '') + '$' + Math.round(Math.abs(n)).toLocaleString();
+  }
+
+  // Health Tier Quick Toggles
+  function setHealthTier(tier, amount) {
+    document.querySelectorAll('.tier-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`tier-${tier}`).classList.add('active');
+    document.getElementById('in-health-raw').value = amount.toLocaleString();
+    calculateEverything();
   }
  
   function getDashboardValues() {
@@ -866,10 +927,73 @@
     return vals;
   }
 
-  // Federal Tax Calculator Engine
-  function calculateFederalTax(grossIncome, filingStatus, adjustments) {
-    const taxableIncome = Math.max(0, grossIncome - adjustments);
+  // Advanced Federal Tax & Multi-Month 401(k) Engine
+  function calculateTrueIncomeAndTax() {
+    const grossIncome = parseVal(document.getElementById('in-gross').value);
+    const filingStatus = document.getElementById('in-status').value;
+    const deferralPct = parseVal(document.getElementById('in-401k-pct').value) / 100;
+    const matchPct = parseVal(document.getElementById('in-match-pct').value) / 100;
+    const healthMonthly = parseVal(document.getElementById('in-health-raw').value);
     
+    const monthlyGross = grossIncome / 12;
+    const annualHealth = healthMonthly * 12;
+
+    // 2026 Caps Setup
+    const MAX_ELECTIVE_DEFERRAL = 24500;
+    const MAX_TOTAL_415C = 72000;
+
+    let totalEmployeeYTD = 0;
+    let totalCombinedYTD = 0;
+    
+    let simulatedAnnualPreTaxDeductions = 0;
+    let simulatedAnnualEmployerMatch = 0;
+    let maxOutMonth = -1;
+
+    // Simulate payroll run month-by-month
+    for (let m = 0; m < 12; m++) {
+      let monthlyEmployeeContribution = monthlyGross * deferralPct;
+      let monthlyEmployerContribution = monthlyGross * matchPct;
+
+      // Handle Individual Deferral Cap ($24,500)
+      if (totalEmployeeYTD + monthlyEmployeeContribution > MAX_ELECTIVE_DEFERRAL) {
+        monthlyEmployeeContribution = Math.max(0, MAX_ELECTIVE_DEFERRAL - totalEmployeeYTD);
+        if (maxOutMonth === -1 && monthlyEmployeeContribution >= 0) maxOutMonth = m;
+      }
+
+      // Handle Combined Ceiling Match Cap ($72,000)
+      let intendedCombined = monthlyEmployeeContribution + monthlyEmployerContribution;
+      if (totalCombinedYTD + intendedCombined > MAX_TOTAL_415C) {
+        intendedCombined = Math.max(0, MAX_TOTAL_415C - totalCombinedYTD);
+        monthlyEmployerContribution = Math.max(0, intendedCombined - monthlyEmployeeContribution);
+      }
+
+      totalEmployeeYTD += monthlyEmployeeContribution;
+      totalCombinedYTD += intendedCombined;
+
+      simulatedAnnualPreTaxDeductions += monthlyEmployeeContribution;
+      simulatedAnnualEmployerMatch += monthlyEmployerContribution;
+    }
+
+    // Determine target interface messaging for 401(k) Cap
+    const alertBox = document.getElementById('maxout-alert-box');
+    const statusTxt = document.getElementById('cf-maxout-status');
+    if (totalEmployeeYTD >= MAX_ELECTIVE_DEFERRAL) {
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      statusTxt.textContent = `Maxed by ${monthNames[maxOutMonth] || 'Dec'}`;
+      statusTxt.style.color = 'var(--amber)';
+      alertBox.style.borderLeftColor = 'var(--amber)';
+    } else {
+      statusTxt.textContent = "Full Year";
+      statusTxt.style.color = 'var(--text-secondary)';
+      alertBox.style.borderLeftColor = 'var(--text-secondary)';
+    }
+
+    // Aggregate Standard Deductions
+    const stdDeductions = filingStatus === 'married' ? 30000 : 15000;
+    const taxAdjustments = simulatedAnnualPreTaxDeductions + annualHealth + stdDeductions;
+    const taxableIncome = Math.max(0, grossIncome - taxAdjustments);
+
+    // 2026 Brackets
     const brackets = {
       single: [
         { upTo: 11600, rate: 0.10 }, { upTo: 47150, rate: 0.12 }, { upTo: 100525, rate: 0.22 },
@@ -896,473 +1020,316 @@
       previousLimit = b.upTo;
     }
 
-    const ssCap = 168600; 
+    // FICA Calculations
+    const ssCap = 176100; 
     const ssTax = Math.min(grossIncome, ssCap) * 0.062;
     const medicareTax = grossIncome * 0.0145;
-    return incomeTax + ssTax + medicareTax;
+    const totalAnnualTax = incomeTax + ssTax + medicareTax;
+
+    // Monthly Averages Output
+    const monthlyTax = totalAnnualTax / 12;
+    const monthlyNetTakeHome = (grossIncome - totalAnnualTax - simulatedAnnualPreTaxDeductions - annualHealth) / 12;
+
+    return {
+      monthlyTax,
+      monthlyNetTakeHome,
+      annualEmployee401k: simulatedAnnualPreTaxDeductions,
+      annualEmployerMatch: simulatedAnnualEmployerMatch,
+      totalAnnualRetirementInflow: totalCombinedYTD
+    };
   }
- 
-  let assetDonut;
-  let growthChart;
-  
-  // Master Waterfall & Dashboard Calculation Engine
-  function recalculateDashboard() {
-    const v = getDashboardValues();
-    const monthlyExpenses = parseFloat(document.getElementById('sl-expenses').value);
-    
-    if (document.activeElement !== document.getElementById('txt-expenses')) {
-      document.getElementById('txt-expenses').value = '$' + Math.round(monthlyExpenses).toLocaleString() + '/mo';
-    }
 
-    // ── Tax Calculations ──
-    const grossAnnual = parseVal(document.getElementById('in-gross').value);
-    const filingStatus = document.getElementById('in-status').value;
-    const preTaxDeductions = parseVal(document.getElementById('in-deductions').value);
-
-    const stdDeduction = filingStatus === 'single' ? 14600 : 29200;
-    const totalAdjustments = stdDeduction + preTaxDeductions;
-
-    const annualizedTaxEst = calculateFederalTax(grossAnnual, filingStatus, totalAdjustments);
-    const monthlyTaxWithheld = annualizedTaxEst / 12;
+  function calculateEverything() {
+    const db = getDashboardValues();
     
-    let monthlyTakeHome = (grossAnnual - preTaxDeductions - annualizedTaxEst) / 12;
-    if (monthlyTakeHome < 0) monthlyTakeHome = 0;
-    
-    let netSurplus = monthlyTakeHome - monthlyExpenses;
+    // Core Balance Sheet Metrics
+    const totalAssets = db.cash + db.retirement + db.homeValue + db.brokerage;
+    const totalLiabilities = db.consumerDebt + db.mortgage;
+    const netWorth = totalAssets - totalLiabilities;
 
-    document.getElementById('cf-tax-withheld').textContent = '$' + Math.round(monthlyTaxWithheld).toLocaleString() + '/mo';
-    document.getElementById('cf-takehome').textContent = '$' + Math.round(monthlyTakeHome).toLocaleString() + '/mo';
-    
-    const surplusElement = document.getElementById('cf-surplus');
-    const surplusBox = document.getElementById('cf-surplus-box');
-    surplusElement.textContent = (netSurplus >= 0 ? '+' : '') + '$' + Math.round(netSurplus).toLocaleString() + '/mo';
-    
-    if (netSurplus < 0) { 
-      surplusElement.style.color = 'var(--red)';
-      surplusBox.style.borderLeftColor = 'var(--red)';
-    } else { 
-      surplusElement.style.color = 'var(--green)';
-      surplusBox.style.borderLeftColor = 'var(--green)';
-    }
-
-    // ── Asset Management Summary ──
-    const totalAssets = v.cash + v.retirement + v.homeValue + v.brokerage;
-    const totalLiabilities = v.consumerDebt + v.mortgage;
-    const trueNetWorth = totalAssets - totalLiabilities;
-
-    document.getElementById('networth-display').textContent = fmt(trueNetWorth);
-    document.getElementById('networth-display').className = trueNetWorth < 0 ? "nw-value red" : "nw-value green";
-    
+    document.getElementById('networth-display').textContent = fmt(netWorth);
     document.getElementById('assets-display').textContent = fmt(totalAssets);
     document.getElementById('liabilities-display').textContent = fmt(totalLiabilities);
 
-    // ── Milestone System Selectors ──
-    const debtPanel = document.getElementById('debt-burn-panel');
-    const freeDateEl = document.getElementById('debt-free-date');
-    const freeMonthsEl = document.getElementById('debt-free-months');
-    const totalInterestEl = document.getElementById('debt-total-interest');
-    
-    const fiTargetElement = document.getElementById('fi-number-target');
-    const fiProgressElement = document.getElementById('fi-progress-pct');
-    const fiFreedomDateElement = document.getElementById('fi-freedom-date');
-
-    const nodeDebt = document.getElementById('node-debt');
-    const nodeRunway = document.getElementById('node-runway');
-    const nodeCoast = document.getElementById('node-coast');
-    const nodeFi = document.getElementById('node-fi');
-
-    const statusDebt = document.getElementById('status-debt');
-    const statusRunway = document.getElementById('status-runway');
-    const statusCoast = document.getElementById('status-coast');
-    const statusFi = document.getElementById('status-fi');
-
-    const dateDebt = document.getElementById('date-debt');
-    const dateRunway = document.getElementById('date-runway');
-    const dateCoast = document.getElementById('date-coast');
-    const dateFi = document.getElementById('date-fi');
-
-    const annualExpenses = monthlyExpenses * 12;
-    const fiTarget = annualExpenses * 25;
-    fiTargetElement.textContent = fiTarget > 0 ? fmt(fiTarget) : '$0';
-
-    const progressPct = fiTarget > 0 ? Math.max(0, (trueNetWorth / fiTarget) * 100) : 0;
-    fiProgressElement.textContent = progressPct.toFixed(1) + '%';
-
-    const userDebtApr = parseVal(document.getElementById('debt-apr-input').value) / 100;
-    const expectedReturnRate = parseVal(document.getElementById('txt-rate').value) / 100;
-
-    debtPanel.style.display = v.consumerDebt > 0 ? 'block' : 'none';
-
-    // Compounding Engine Dataset Containers
-    let projectionYears = 25;
-    let chartLabels = [];
-    let chartDataPoints = [];
-    
-    if (netSurplus <= 0) {
-      freeDateEl.textContent = 'Stalled'; freeDateEl.style.color = 'var(--red)';
-      freeMonthsEl.textContent = '∞'; totalInterestEl.textContent = 'Compounding'; totalInterestEl.style.color = 'var(--red)';
-      fiFreedomDateElement.textContent = 'Stalled'; fiFreedomDateElement.style.color = 'var(--red)';
-
-      [nodeDebt, nodeRunway, nodeCoast, nodeFi].forEach(n => n.classList.remove('active', 'complete'));
-      statusDebt.textContent = v.consumerDebt > 0 ? "Stalled" : "Cleared";
-      statusRunway.textContent = "Stalled"; statusCoast.textContent = "Stalled"; statusFi.textContent = "Stalled";
-      dateDebt.textContent = "—"; dateRunway.textContent = "—"; dateCoast.textContent = "—"; dateFi.textContent = "—";
-      
-      // Plot stagnant separate investment projection if cash flow locked
-      let fallbackInvestments = v.cash + v.retirement + v.brokerage;
-      for (let y = 0; y <= projectionYears; y++) {
-        chartLabels.push(y === 0 ? 'Now' : 'Yr ' + y);
-        chartDataPoints.push(Math.round(fallbackInvestments * Math.pow(1 + expectedReturnRate, y)));
-      }
-      document.getElementById('fv-display').textContent = fmt(chartDataPoints[projectionYears]);
-      document.getElementById('fv-gain').textContent = "Cash flow deficit. Visualizing static historical compounding assets only.";
+    if (netWorth < 0) {
+      document.getElementById('networth-display').className = "nw-value red";
     } else {
-      // ── RUN WATERFALL LOOPER ENGINE & DATA HARVESTER ──
-      let currentDebt = v.consumerDebt;
-      let currentCash = v.cash;
-      let currentLiquidInvestments = v.retirement + v.brokerage; 
-      
-      const rDebtMonthly = userDebtApr / 12;
-      const rMarketMonthly = expectedReturnRate / 12; 
-      
-      let totalMonthsElapsed = 0;
-      let totalInterestPaid = 0;
-      let targetEmergencyFund = monthlyExpenses * 6;
-      
-      let debtFreedomMonthCount = v.consumerDebt > 0 ? null : 0;
-      let runwayFundedMonthCount = null;
-      let coastFiMonthCount = null;
-      let fullFiMonthCount = null;
-      
-      // Simulation array mapping for 25-year timeline projection
-      let monthByMonthPortfolioLog = [Math.round(currentCash + currentLiquidInvestments)];
+      document.getElementById('networth-display').className = "nw-value green";
+    }
 
-      if (currentCash >= targetEmergencyFund) runwayFundedMonthCount = 0;
+    // Cash Flow Integrations
+    const taxes = calculateTrueIncomeAndTax();
+    const monthlyExpenses = parseVal(document.getElementById('sl-expenses').value);
+    const savingsMargin = Math.max(0, taxes.monthlyNetTakeHome - monthlyExpenses);
 
-      for (let m = 1; m <= 300; m++) { // Run loop across 25 years (300 months)
-        let dynamicInvestmentsTotal = currentLiquidInvestments + (v.homeValue - v.mortgage);
-        let dynamicNetWorth = (currentCash + dynamicInvestmentsTotal) - currentDebt;
+    document.getElementById('cf-tax-withheld').textContent = fmt(taxes.monthlyTax) + '/mo';
+    document.getElementById('cf-takehome').textContent = fmt(taxes.monthlyNetTakeHome) + '/mo';
+    document.getElementById('cf-surplus').textContent = fmt(savingsMargin) + '/mo';
+
+    // Financial Health Diagnostics Matrix
+    const emergencyRunwayMonths = monthlyExpenses > 0 ? db.cash / monthlyExpenses : 0;
+    const emRunwayWidget = document.getElementById('metric-emergency-runway');
+    emRunwayWidget.textContent = emergencyRunwayMonths.toFixed(1) + ' mo';
+    emRunwayWidget.className = "metric-value " + (emergencyRunwayMonths >= 6 ? 'good' : (emergencyRunwayMonths >= 3 ? 'warning' : 'red'));
+
+    const target6MoBuffer = monthlyExpenses * 6;
+    const shortage = Math.max(0, target6MoBuffer - db.cash);
+    const replenishmentMonths = (shortage > 0 && savingsMargin > 0) ? shortage / savingsMargin : 0;
+    document.getElementById('metric-replenish-time').textContent = shortage > 0 ? (replenishmentMonths.toFixed(1) + ' mos') : 'Fully Funded';
+
+    const homeEquityValue = db.homeValue - db.mortgage;
+    document.getElementById('metric-home-equity').textContent = fmt(homeEquityValue);
+
+    const debtToAssetRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+    const ratioWidget = document.getElementById('metric-debt-ratio');
+    ratioWidget.textContent = debtToAssetRatio.toFixed(1) + '%';
+    ratioWidget.className = "metric-value " + (debtToAssetRatio < 35 ? 'good' : (debtToAssetRatio < 75 ? 'warning' : 'red'));
+
+    // Timeline Waterfall Engine Loops
+    let runningCash = db.cash;
+    let runningConsumerDebt = db.consumerDebt;
+    let runningRetirement = db.retirement + db.brokerage;
+    
+    let monthsElapsed = 0;
+    const debtApr = parseVal(document.getElementById('debt-apr-input').value) / 100;
+    let totalPaidInterest = 0;
+
+    let dateDebtFree = null;
+    let dateRunwayFunded = null;
+    let dateCoastFI = null;
+    let dateFullFI = null;
+
+    const fiTarget = monthlyExpenses * 12 * 25; 
+    document.getElementById('fi-number-target').textContent = fmt(fiTarget);
+    
+    const progressPct = fiTarget > 0 ? Math.min(100, (runningRetirement / fiTarget) * 100) : 0;
+    document.getElementById('fi-progress-pct').textContent = progressPct.toFixed(1) + '%';
+
+    const yieldRate = parseVal(document.getElementById('txt-rate').value) / 100;
+    const monthlyYield = yieldRate / 12;
+
+    // Run dynamic 50-year system loop projections (600 max iterations)
+    while (monthsElapsed < 600) {
+      // Apply asset compound interest returns
+      runningRetirement *= (1 + monthlyYield);
+      // Inject standard pre-tax retirement plan additions
+      runningRetirement += (taxes.totalAnnualRetirementInflow / 12);
+
+      // Evaluate Debt Phase
+      if (runningConsumerDebt > 0) {
+        const monthlyAccruedInterest = runningConsumerDebt * (debtApr / 12);
+        totalPaidInterest += monthlyAccruedInterest;
+        runningConsumerDebt += monthlyAccruedInterest;
+
+        const debtPayment = Math.min(runningConsumerDebt, savingsMargin + (runningCash > monthlyExpenses ? runningCash - monthlyExpenses : 0));
+        runningConsumerDebt -= debtPayment;
         
-        // Track Coast FI milestone
-        if (coastFiMonthCount === null && currentDebt <= 0) {
-          let yearsToRetire = 65 - (31 + (m / 12));
-          if (yearsToRetire > 0) {
-            let compoundingFutureValue = dynamicInvestmentsTotal * Math.pow(1 + 0.07, yearsToRetire);
-            if (compoundingFutureValue >= fiTarget) coastFiMonthCount = m;
-          } else if (dynamicNetWorth >= fiTarget) {
-            coastFiMonthCount = m;
-          }
+        if (runningConsumerDebt <= 0 && !dateDebtFree) {
+          dateDebtFree = monthsElapsed;
         }
-
-        if (dynamicNetWorth >= fiTarget && currentDebt <= 0 && currentCash >= targetEmergencyFund && fullFiMonthCount === null) {
-          fullFiMonthCount = m;
-        }
-
-        // Tier 1: Pay down high priority debt
-        if (currentDebt > 0) {
-          const interestAccrued = currentDebt * rDebtMonthly;
-          if (interestAccrued >= netSurplus && rDebtMonthly > 0) {
-            totalInterestPaid = Infinity;
-            break;
-          }
-          totalInterestPaid += interestAccrued;
-          currentDebt = (currentDebt + interestAccrued) - netSurplus;
-          
-          if (currentDebt <= 0) {
-            const overflow = Math.abs(currentDebt);
-            currentDebt = 0;
-            currentCash += overflow;
-            debtFreedomMonthCount = m;
-          }
-          currentLiquidInvestments *= (1 + rMarketMonthly);
-          monthByMonthPortfolioLog.push(Math.round(currentCash + currentLiquidInvestments));
-          continue;
-        }
-
-        // Tier 2: Refuel Emergency Capital Stack
-        if (currentCash < targetEmergencyFund) {
-          currentCash += netSurplus;
-          if (currentCash >= targetEmergencyFund) {
-            const overflow = currentCash - targetEmergencyFund;
-            currentCash = targetEmergencyFund;
-            currentLiquidInvestments += overflow;
-            runwayFundedMonthCount = m;
-          }
-          currentLiquidInvestments *= (1 + rMarketMonthly);
-          monthByMonthPortfolioLog.push(Math.round(currentCash + currentLiquidInvestments));
-          continue;
-        }
-
-        // Tier 3: Fuel Financial Independence Box with compound growth acceleration
-        currentLiquidInvestments = (currentLiquidInvestments * (1 + rMarketMonthly)) + netSurplus;
-        monthByMonthPortfolioLog.push(Math.round(currentCash + currentLiquidInvestments));
-      }
-
-      // ── Process Chart UI Data Mapping ──
-      if (totalInterestPaid !== Infinity) {
-        for (let y = 0; y <= projectionYears; y++) {
-          chartLabels.push(y === 0 ? 'Now' : 'Yr ' + y);
-          let targetMonthIndex = y * 12;
-          chartDataPoints.push(monthByMonthPortfolioLog[targetMonthIndex] || monthByMonthPortfolioLog[monthByMonthPortfolioLog.length - 1]);
-        }
-        let totalPrincipalContributions = (v.cash + v.retirement + v.brokerage) + (netSurplus * Math.max(0, (300 - (debtFreedomMonthCount || 0) - (runwayFundedMonthCount || 0))));
-        let compoundInterestYieldGain = Math.max(0, chartDataPoints[projectionYears] - totalPrincipalContributions);
-        
-        document.getElementById('fv-display').textContent = fmt(chartDataPoints[projectionYears]);
-        document.getElementById('fv-gain').textContent = '+' + fmt(compoundInterestYieldGain) + ' generated across your unique waterfall timeline';
-      }
-
-      // Reset Node styles
-      [nodeDebt, nodeRunway, nodeCoast, nodeFi].forEach(n => n.classList.remove('active', 'complete'));
-
-      // ── Process Phase 1 Nodes ──
-      if (totalInterestPaid === Infinity) {
-        freeDateEl.textContent = 'Trapped'; freeDateEl.style.color = 'var(--red)';
-        freeMonthsEl.textContent = '∞'; totalInterestEl.textContent = 'Interest Loop';
-        fiFreedomDateElement.textContent = 'Never'; fiFreedomDateElement.style.color = 'var(--red)';
-        statusDebt.textContent = "Looping"; dateDebt.textContent = "Never";
-        nodeDebt.classList.add('active');
-      } else if (v.consumerDebt > 0 && debtFreedomMonthCount !== null) {
-        const dDate = new Date(); dDate.setMonth(dDate.getMonth() + debtFreedomMonthCount);
-        const dateStr = dDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        
-        freeDateEl.textContent = dateStr; freeDateEl.style.color = 'var(--green)';
-        freeMonthsEl.textContent = debtFreedomMonthCount + ' mos';
-        totalInterestEl.textContent = fmt(totalInterestPaid);
-        
-        nodeDebt.classList.add('active');
-        statusDebt.textContent = "Burning";
-        dateDebt.textContent = dateStr;
       } else {
-        freeDateEl.textContent = 'Cleared'; freeDateEl.style.color = 'var(--green)';
-        freeMonthsEl.textContent = '0 mos'; totalInterestEl.textContent = '$0';
+        // Evaluate Emergency Cache Cushioning Phase
+        if (!dateDebtFree) dateDebtFree = monthsElapsed;
         
-        nodeDebt.classList.add('complete');
-        statusDebt.textContent = "Complete";
-        dateDebt.textContent = "Done";
-      }
-
-      // ── Process Phase 2 Nodes ──
-      if (totalInterestPaid !== Infinity) {
-        if (v.consumerDebt > 0) {
-          statusRunway.textContent = "Queued";
-          const runDate = new Date(); runDate.setMonth(runDate.getMonth() + (runwayFundedMonthCount || 0));
-          dateRunway.textContent = runwayFundedMonthCount !== null ? runDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "—";
-        } else if (v.cash < targetEmergencyFund) {
-          nodeRunway.classList.add('active');
-          statusRunway.textContent = "Refueling";
-          const runDate = new Date(); runDate.setMonth(runDate.getMonth() + (runwayFundedMonthCount || 0));
-          dateRunway.textContent = runDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        if (runningCash < target6MoBuffer) {
+          const cashInjection = Math.min(target6MoBuffer - runningCash, savingsMargin);
+          runningCash += cashInjection;
+          if (runningCash >= target6MoBuffer && !dateRunwayFunded) {
+            dateRunwayFunded = monthsElapsed;
+          }
         } else {
-          nodeRunway.classList.add('complete');
-          statusRunway.textContent = "Secure";
-          dateRunway.textContent = "Done";
+          if (!dateRunwayFunded) dateRunwayFunded = monthsElapsed;
+          // Overflow surplus wealth direct into liquid brokerage accounts
+          runningRetirement += savingsMargin;
         }
       }
 
-      // ── Process Phase 3 Nodes ──
-      if (totalInterestPaid !== Infinity) {
-        if (coastFiMonthCount !== null) {
-          const coastDate = new Date(); coastDate.setMonth(coastDate.getMonth() + coastFiMonthCount);
-          const coastAge = 31 + (coastFiMonthCount / 12);
-          const coastStr = coastDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-          
-          dateCoast.textContent = `${coastStr} (Age ${Math.round(coastAge)})`;
-          if (coastFiMonthCount === 0) {
-            nodeCoast.classList.add('complete');
-            statusCoast.textContent = "Achieved";
-          } else if (v.consumerDebt === 0 && v.cash >= targetEmergencyFund) {
-            nodeCoast.classList.add('active');
-            statusCoast.textContent = "Compounding";
-          } else {
-            statusCoast.textContent = "Queued";
-          }
-        } else {
-          statusCoast.textContent = "Locked"; dateCoast.textContent = "—";
-        }
+      // Check Passive Freedom Checkpoints
+      const yearsToRetireMax = 65 - 31; // Failsafe benchmark base span
+      const projectedFutureRetirementValue = runningRetirement * Math.pow(1 + yieldRate, Math.max(0, yearsToRetireMax - (monthsElapsed / 12)));
+      
+      if (projectedFutureRetirementValue >= fiTarget && !dateCoastFI) {
+        dateCoastFI = monthsElapsed;
+      }
+      if (runningRetirement >= fiTarget && !dateFullFI) {
+        dateFullFI = monthsElapsed;
+        break; 
       }
 
-      // ── Process Phase 4 Nodes ──
-      if (totalInterestPaid !== Infinity) {
-        if (fullFiMonthCount === null) {
-          fiFreedomDateElement.textContent = '25+ Years';
-          fiFreedomDateElement.style.color = 'var(--amber)';
-          statusFi.textContent = "Accumulating";
-          dateFi.textContent = "25+ Yrs";
-          if (v.consumerDebt === 0 && v.cash >= targetEmergencyFund && statusCoast.textContent !== "Compounding") {
-            nodeFi.classList.add('active');
-          }
-        } else {
-          const fiDate = new Date(); fiDate.setMonth(fiDate.getMonth() + fullFiMonthCount);
-          const fiStr = fiDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-          
-          fiFreedomDateElement.textContent = fiStr;
-          fiFreedomDateElement.style.color = 'var(--purple)';
-          dateFi.textContent = fiStr;
-          
-          if (fullFiMonthCount === 0) {
-            nodeFi.classList.add('complete');
-            statusFi.textContent = "Independent";
-          } else if (v.consumerDebt === 0 && v.cash >= targetEmergencyFund && coastFiMonthCount === 0) {
-            nodeFi.classList.add('active');
-            statusFi.textContent = "Accelerating";
-          } else {
-            statusFi.textContent = "Queued";
-          }
-        }
-      }
+      monthsElapsed++;
     }
 
-    // Metric 1: Emergency Fund Buffer
-    const runwayMonths = v.cash / (monthlyExpenses || 1);
-    const emergencyElement = document.getElementById('metric-emergency-runway');
-    
-    if (totalAssets === 0 && totalLiabilities === 0) {
-      emergencyElement.textContent = '—'; emergencyElement.className = "metric-value";
+    // Map waterfall states into target node visuals
+    updateTimelineNode('debt', dateDebtFree, "Debt Free", true);
+    updateTimelineNode('runway', dateRunwayFunded, "6-Mo Runway", dateDebtFree !== null);
+    updateTimelineNode('coast', dateCoastFI, "Coast FI", dateRunwayFunded !== null);
+    updateTimelineNode('fi', dateFullFI, "Full FI", dateCoastFI !== null);
+
+    // Render Diagnostics Readouts
+    if (db.consumerDebt > 0 && dateDebtFree) {
+      document.getElementById('debt-free-months').textContent = dateDebtFree;
+      const targetDate = new Date();
+      targetDate.setMonth(targetDate.getMonth() + dateDebtFree);
+      document.getElementById('debt-free-date').textContent = targetDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      document.getElementById('debt-total-interest').textContent = fmt(totalPaidInterest);
     } else {
-      emergencyElement.textContent = runwayMonths.toFixed(1) + ' Months';
-      if (runwayMonths >= 6) { emergencyElement.className = "metric-value good"; }
-      else if (runwayMonths >= 3) { emergencyElement.className = "metric-value warning"; }
-      else { emergencyElement.className = "metric-value"; emergencyElement.style.color = "var(--red)"; }
+      document.getElementById('debt-free-months').textContent = '0';
+      document.getElementById('debt-free-date').textContent = 'Paid';
+      document.getElementById('debt-total-interest').textContent = '$0';
     }
 
-    // Metric 2: Emergency Replenishment Horizon
-    const targetBuffer = monthlyExpenses * 6;
-    const neededBuffer = Math.max(0, targetBuffer - v.cash);
-    const replenishElement = document.getElementById('metric-replenish-time');
-
-    if (neededBuffer === 0) {
-      replenishElement.textContent = 'Fully Seeded'; replenishElement.className = "metric-value good";
-    } else if (netSurplus <= 0) {
-      replenishElement.textContent = 'Deficit / No Margin'; replenishElement.className = "metric-value"; replenishElement.style.color = "var(--red)";
+    if (dateFullFI) {
+      const targetFiDate = new Date();
+      targetFiDate.setMonth(targetFiDate.getMonth() + dateFullFI);
+      document.getElementById('fi-freedom-date').textContent = targetFiDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
     } else {
-      const monthsNeeded = neededBuffer / netSurplus;
-      replenishElement.textContent = monthsNeeded.toFixed(1) + ' Months';
-      if (monthsNeeded <= 6) { replenishElement.className = "metric-value good"; }
-      else if (monthsNeeded <= 12) { replenishElement.className = "metric-value warning"; }
-      else { replenishElement.className = "metric-value"; replenishElement.style.color = "var(--text-primary)"; }
+      document.getElementById('fi-freedom-date').textContent = '50y+';
     }
 
-    // Metric 3: Home Equity Calc
-    const equityVal = v.homeValue - v.mortgage;
-    document.getElementById('metric-home-equity').textContent = (v.homeValue === 0 && v.mortgage === 0) ? '—' : fmt(equityVal);
+    // Render Assets Pie Chart Representation
+    updateDonutChart(db);
+    // Project 25-Year Long-Term Line Wealth Charts
+    updateGrowthChart(taxes.totalAnnualRetirementInflow, savingsMargin, yieldRate);
+  }
 
-    // Metric 4: Debt-to-Asset Percentages
-    const debtRatio = (totalLiabilities / (totalAssets || 1)) * 100;
-    const ratioElement = document.getElementById('metric-debt-ratio');
-    
-    if (totalAssets === 0 && totalLiabilities === 0) {
-      ratioElement.textContent = '—'; ratioElement.className = "metric-value";
+  function updateTimelineNode(id, months, label, parentComplete) {
+    const node = document.getElementById(`node-${id}`);
+    const status = document.getElementById(`status-${id}`);
+    const dateElement = document.getElementById(`date-${id}`);
+
+    if (months !== null && months <= 0) {
+      node.className = `timeline-node phase-${id} complete`;
+      status.textContent = "Achieved";
+      dateElement.textContent = "Current";
+    } else if (months !== null && parentComplete) {
+      node.className = `timeline-node phase-${id} active`;
+      status.textContent = "In Progress";
+      const projectDate = new Date();
+      projectDate.setMonth(projectDate.getMonth() + months);
+      dateElement.textContent = projectDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
     } else {
-      ratioElement.textContent = debtRatio.toFixed(1) + '%';
-      if (debtRatio < 35) { ratioElement.className = "metric-value good"; }
-      else if (debtRatio < 60) { ratioElement.className = "metric-value warning"; }
-      else { ratioElement.className = "metric-value"; ratioElement.style.color = "var(--red)"; }
-    }
-
-    // Sync Donut Layout
-    if (assetDonut) {
-      assetDonut.data.datasets[0].data = [v.cash, v.retirement, v.homeValue, v.brokerage];
-      assetDonut.update('none');
-    }
-
-    // Update Line Graph Visual points natively
-    if (growthChart) {
-      growthChart.data.labels = chartLabels;
-      growthChart.data.datasets[0].data = chartDataPoints;
-      growthChart.update('none');
+      node.className = `timeline-node phase-${id}`;
+      status.textContent = "Locked";
+      dateElement.textContent = "—";
     }
   }
- 
-  // Balance Sheet Input Event Registration
-  document.querySelectorAll('#cards .card-input').forEach(inp => {
-    inp.addEventListener('input', recalculateDashboard);
-    inp.addEventListener('focus', () => { 
-      if(parseVal(inp.value) === 0) inp.value = '';
-      else inp.value = inp.value.replace(/,/g, ''); 
-    });
-    inp.addEventListener('blur', () => {
-      inp.value = Math.round(parseVal(inp.value)).toLocaleString();
-      recalculateDashboard();
-    });
-  });
 
-  // APR Input Registration
-  const aprInput = document.getElementById('debt-apr-input');
-  aprInput.addEventListener('input', recalculateDashboard);
-  aprInput.addEventListener('blur', () => {
-    let cleanApr = parseVal(aprInput.value);
-    if(cleanApr < 0) cleanApr = 0; if(cleanApr > 100) cleanApr = 100;
-    aprInput.value = cleanApr || 0;
-    recalculateDashboard();
-  });
-
-  // Expected Market Returns Input Setup
-  const txtRate = document.getElementById('txt-rate');
-  const slRate = document.getElementById('sl-rate');
-  txtRate.addEventListener('input', () => {
-    let cleanRate = parseVal(txtRate.value);
-    if(cleanRate < 0) cleanRate = 0; if(cleanRate > 15) cleanRate = 15;
-    slRate.value = cleanRate;
-    recalculateDashboard();
-  });
-  txtRate.addEventListener('blur', () => {
-    txtRate.value = parseVal(txtRate.value).toFixed(1);
-    recalculateDashboard();
-  });
-
-  // Expenses Range Input Configuration
-  const txtExpenses = document.getElementById('txt-expenses');
-  const slExpenses = document.getElementById('sl-expenses');
-  slExpenses.addEventListener('input', recalculateDashboard);
-  
-  txtExpenses.addEventListener('focus', () => { txtExpenses.value = txtExpenses.value.replace(/[$,\/mo\s]/g, ''); });
-  txtExpenses.addEventListener('input', () => {
-    let cleaned = parseVal(txtExpenses.value);
-    if (cleaned > parseFloat(slExpenses.max)) cleaned = parseFloat(slExpenses.max);
-    if (cleaned < parseFloat(slExpenses.min)) cleaned = parseFloat(slExpenses.min);
-    slExpenses.value = cleaned;
-    recalculateDashboard();
-  });
-  txtExpenses.addEventListener('blur', () => { recalculateDashboard(); });
-
-  // Cash Flow Controls Event Layout
-  ['in-gross', 'in-deductions'].forEach(id => {
-    const el = document.getElementById(id);
-    el.addEventListener('focus', () => { el.value = el.value.replace(/,/g, ''); });
-    el.addEventListener('blur', () => { el.value = Math.round(parseVal(el.value)).toLocaleString(); });
-    el.addEventListener('input', recalculateDashboard);
-  });
-  document.getElementById('in-status').addEventListener('change', recalculateDashboard);
- 
-  // Chart Rendering Operations
-  assetDonut = new Chart(document.getElementById('assetDonut'), {
-    type: 'doughnut',
-    data: {
-      labels: ['Cash', 'Retirement', 'Property', 'Other Assets'],
-      datasets: [{ data: [0, 0, 0, 0], backgroundColor: ['#2563eb', '#0e9f6e', '#7c3aed', '#d97706'], borderWidth: 0 }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '75%',
-      plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }
+  function updateDonutChart(db) {
+    const ctx = document.getElementById('assetDonut').getContext('2-2d');
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    
+    if (assetDonut) {
+      assetDonut.data.datasets[0].data = [db.cash, db.retirement, db.homeValue, db.brokerage];
+      assetDonut.options.plugins.legend.labels.color = isDark ? '#c9d1d9' : '#0d1117';
+      assetDonut.update();
+      return;
     }
-  });
- 
-  growthChart = new Chart(document.getElementById('growthChart'), {
-    type: 'line',
-    data: { labels: [], datasets: [{ label: 'Portfolio Forecast', data: [], fill: true, backgroundColor: 'rgba(37,99,235,0.06)', borderColor: '#2563eb', borderWidth: 2, pointRadius: 0, tension: 0.2 }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { font: { size: 9, family: "'DM Mono', monospace" }, color: '#9aa3b5', maxTicksLimit: 8 }, grid: { display: false }, border: { display: false } },
-        y: { ticks: { font: { size: 9, family: "'DM Mono', monospace" }, color: '#9aa3b5', callback: v => fmt(v) }, grid: { color: 'rgba(0,0,0,0.04)' }, border: { display: false } }
+
+    assetDonut = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Cash', 'Retirement', 'Property', 'Brokerage'],
+        datasets: [{
+          data: [db.cash, db.retirement, db.homeValue, db.brokerage],
+          backgroundColor: ['#2563eb', '#0e9f6e', '#7c3aed', '#d97706'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'DM Sans', size: 11 }, color: isDark ? '#c9d1d9' : '#0d1117' } }
+        }
       }
+    });
+  }
+
+  function updateGrowthChart(annual401k, monthlySavings, rate) {
+    const ctx = document.getElementById('growthChart').getContext('2d');
+    const db = getDashboardValues();
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    
+    let currentBalance = db.cash + db.retirement + db.brokerage;
+    const initialBase = currentBalance;
+    const dataPoints = [currentBalance];
+    const labels = ['Now'];
+
+    const totalAnnualContributions = annual401k + (monthlySavings * 12);
+
+    for (let year = 1; year <= 25; year++) {
+      currentBalance = (currentBalance * (1 + rate)) + totalAnnualContributions;
+      dataPoints.push(currentBalance);
+      labels.push(`Yr ${year}`);
     }
+
+    document.getElementById('fv-display').textContent = fmt(currentBalance);
+    const totalInvesteded = totalAnnualContributions * 25;
+    const compoundGrowthGains = Math.max(0, currentBalance - initialBase - totalInvesteded);
+    document.getElementById('fv-gain').textContent = `Includes ${fmt(compoundGrowthGains)} from interest compounding`;
+
+    if (growthChart) {
+      growthChart.data.labels = labels;
+      growthChart.data.datasets[0].data = dataPoints;
+      updateChartTheme(document.documentElement.getAttribute('data-theme') || 'light');
+      return;
+    }
+
+    growthChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Net Worth Estimate',
+          data: dataPoints,
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.05)',
+          fill: true,
+          tension: 0.1,
+          pointRadius: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: isDark ? '#8b949e' : '#9aa3b5', font: { family: 'DM Mono', size: 10 } }, grid: { display: false } },
+          y: { 
+            ticks: { color: isDark ? '#8b949e' : '#9aa3b5', font: { family: 'DM Mono', size: 10 }, callback: value => fmt(value) },
+            grid: { color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)' }
+          }
+        }
+      }
+    });
+  }
+
+  // Bind Listeners
+  document.querySelectorAll('.card-input, #in-gross, #in-status, #in-401k-pct, #in-match-pct, #in-health-raw, #debt-apr-input').forEach(el => {
+    el.addEventListener('input', calculateEverything);
+    el.addEventListener('change', calculateEverything);
   });
- 
-  // Initial Boot Sequence
-  recalculateDashboard();
+
+  const slExpenses = document.getElementById('sl-expenses');
+  const txtExpenses = document.getElementById('txt-expenses');
+  slExpenses.addEventListener('input', (e) => {
+    txtExpenses.value = '$' + parseInt(e.target.value).toLocaleString() + '/mo';
+    calculateEverything();
+  });
+
+  const txtRate = document.getElementById('txt-rate');
+  txtRate.addEventListener('input', () => { calculateEverything(); });
+
+  // Formatting listener blocks for inputs
+  document.querySelectorAll('.card-input, #in-gross, #in-health-raw').forEach(input => {
+    input.addEventListener('blur', (e) => {
+      const val = parseVal(e.target.value);
+      e.target.value = val.toLocaleString();
+    });
+  });
+
+  // Init Execution
+  calculateEverything();
 </script>
 </body>
 </html>

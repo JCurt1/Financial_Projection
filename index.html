@@ -1014,20 +1014,39 @@
     // Debt Free Projection Trackers
     let currentDebt = state.consumerDebt;
     let monthlyDebtPayment = calculatedSavingsMargin;
-    let monthsToDebtFree = 0;
-    let totalDebtInterestFriction = 0;
-    let monthlyDebtApr = (state.debtApr / 100) / 12;
+   let monthsToDebtFree = 0;
+let totalDebtInterestFriction = 0;
+let monthlyDebtApr = (state.debtApr / 100) / 12;
+let debtCanBePaidOff = false;
 
-    if (currentDebt > 0 && monthlyDebtPayment > 0) {
-      while (currentDebt > 0 && monthsToDebtFree < 360) {
-        let interestAccrual = currentDebt * monthlyDebtApr;
-        totalDebtInterestFriction += interestAccrual;
-        currentDebt = currentDebt + interestAccrual - monthlyDebtPayment;
-        monthsToDebtFree++;
-      }
-    } else if (currentDebt > 0) {
-      monthsToDebtFree = Infinity;
+if (currentDebt > 0) {
+
+  // payment doesn't even cover interest
+  if (
+    monthlyDebtPayment <= 0 ||
+    monthlyDebtPayment <= currentDebt * monthlyDebtApr
+  ) {
+
+    debtCanBePaidOff = false;
+
+  } else {
+
+    while (currentDebt > 0 && monthsToDebtFree < 600) {
+      const interestAccrual = currentDebt * monthlyDebtApr;
+
+      totalDebtInterestFriction += interestAccrual;
+      currentDebt += interestAccrual - monthlyDebtPayment;
+
+      monthsToDebtFree++;
+
+      if (currentDebt <= 0) break;
     }
+
+    if (currentDebt > 0) {
+      debtCanBePaidOff = false;
+    }
+  }
+}
 
     let today = new Date();
     let debtFreeDateStr = '—';
@@ -1038,7 +1057,7 @@
       document.getElementById('node-debt').className = 'timeline-node phase-debt complete';
       document.getElementById('status-debt').textContent = 'Complete';
       document.getElementById('date-debt').textContent = today.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
-    } else if (monthsToDebtFree === Infinity) {
+    } else if (!debtCanBePaidOff) {
       document.getElementById('debt-free-date').textContent = 'Never';
       document.getElementById('debt-free-months').textContent = '∞';
       document.getElementById('debt-total-interest').textContent = 'Escalating';
@@ -1078,7 +1097,7 @@
     } else {
       runwayNode.className = 'timeline-node phase-runway active';
       runwayStatus.textContent = 'Seeding';
-      if (calculatedSavingsMargin > 0 && monthsToDebtFree !== Infinity) {
+     if (calculatedSavingsMargin > 0 && debtCanBePaidOff) {
         let monthsToBuildRunway = Math.ceil(neededFor6Mo / calculatedSavingsMargin) + (state.consumerDebt > 0 ? monthsToDebtFree : 0);
         let runwayTargetDate = new Date();
         runwayTargetDate.setMonth(today.getMonth() + monthsToBuildRunway);
@@ -1134,9 +1153,12 @@
         currentCompoundingNW *= (1 + annualYield / 12);
         
         let waterfallActivePhase = 'debt';
-        if (state.consumerDebt <= 0 || simulationMonthsOffset > monthsToDebtFree) {
-          waterfallActivePhase = 'runway';
-        }
+        if (
+  state.consumerDebt <= 0 ||
+  (debtCanBePaidOff && simulationMonthsOffset > monthsToDebtFree)
+) {
+  waterfallActivePhase = 'runway';
+}
         if (emergencyMonths >= 6 || (waterfallActivePhase === 'runway' && (simulationMonthsOffset - monthsToDebtFree) * calculatedSavingsMargin >= neededFor6Mo)) {
           waterfallActivePhase = 'investing';
         }
@@ -1144,7 +1166,22 @@
         if (waterfallActivePhase === 'investing') {
           currentCompoundingNW += (calculatedSavingsMargin + (totalInflowEmployer401k / 12));
         } else {
-          currentCompoundingNW += (totalInflowEmployer401k / 12);
+          if (!debtCanBePaidOff) {
+
+  currentCompoundingNW += (state.grossIncome * (state.employerMatch / 100) / 12);
+
+} else {
+
+  if (waterfallActivePhase === 'investing') {
+    currentCompoundingNW += (
+      calculatedSavingsMargin +
+      (totalInflowEmployer401k / 12)
+    );
+  } else {
+    currentCompoundingNW += (totalInflowEmployer401k / 12);
+  }
+
+}
         }
 
         // Test targets dynamically inside running engine loops

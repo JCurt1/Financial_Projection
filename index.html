@@ -1191,30 +1191,18 @@ if (currentDebt > 0) {
           waterfallActivePhase = 'investing';
         }
 
-        if (calculatedSavingsMargin >= 0) {
+if (calculatedSavingsMargin >= 0) {
+  if (waterfallActivePhase === 'investing') {
+    simBrokerage += calculatedSavingsMargin;
+  }
+  simRetirement += (totalInflowEmployer401k / 12);
+} else {
+  // Negative margin = drawing down assets each month; no floor at zero
+  simBrokerage += calculatedSavingsMargin;
+  simRetirement += (state.grossIncome * (state.employerMatch / 100) / 12);
+}
 
-          if (waterfallActivePhase === 'investing') {
-            simBrokerage += calculatedSavingsMargin;
-          }
-
-          simRetirement += (totalInflowEmployer401k / 12);
-
-        } else {
-
-          let shortfall = Math.abs(calculatedSavingsMargin);
-
-          if (!coverMonthlyShortfall(shortfall)) {
-            absoluteFiAchievedAge = null;
-            break;
-          }
-
-          simRetirement += (state.grossIncome * (state.employerMatch / 100) / 12);
-        }
-
-        currentCompoundingNW =
-          simCash +
-          simBrokerage +
-          simRetirement;
+currentCompoundingNW = simCash + simBrokerage + simRetirement;
 
         // Test targets dynamically inside running engine loops
         if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {

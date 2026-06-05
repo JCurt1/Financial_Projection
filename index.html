@@ -1049,6 +1049,10 @@
       }
     }
 
+    // ── DYNAMIC VISIBILITY CONFIG FOR DEBT BURN DOWN BOX ──
+    // Looks for standard structural layout identifiers for the debt alert info strip
+    const burnDownBoxElement = document.getElementById('debt-burn-down-box') || document.getElementById('debt-free-months')?.closest('.metric-box') || document.getElementById('debt-free-date')?.parentElement;
+    
     let today = new Date();
     let debtFreeDateStr = '—';
     if (state.consumerDebt <= 0) {
@@ -1058,23 +1062,31 @@
       document.getElementById('node-debt').className = 'timeline-node phase-debt complete';
       document.getElementById('status-debt').textContent = 'Complete';
       document.getElementById('date-debt').textContent = today.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
-    } else if (!debtCanBePaidOff) {
-      document.getElementById('debt-free-date').textContent = 'Never';
-      document.getElementById('debt-free-months').textContent = '∞';
-      document.getElementById('debt-total-interest').textContent = 'Escalating';
-      document.getElementById('node-debt').className = 'timeline-node phase-debt active';
-      document.getElementById('status-debt').textContent = 'Stalled';
-      document.getElementById('date-debt').textContent = '—';
+      
+      // If consumer debt is zero, completely remove the tracking burn down panel box layout safely
+      if (burnDownBoxElement) burnDownBoxElement.style.display = 'none';
     } else {
-      let targetDate = new Date();
-      targetDate.setMonth(today.getMonth() + monthsToDebtFree);
-      debtFreeDateStr = targetDate.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
-      document.getElementById('debt-free-date').textContent = debtFreeDateStr;
-      document.getElementById('debt-free-months').textContent = monthsToDebtFree;
-      document.getElementById('debt-total-interest').textContent = formatCurrency(totalDebtInterestFriction);
-      document.getElementById('node-debt').className = 'timeline-node phase-debt active';
-      document.getElementById('status-debt').textContent = 'Active';
-      document.getElementById('date-debt').textContent = debtFreeDateStr;
+      // Re-enable visibility if debt expands past 0
+      if (burnDownBoxElement) burnDownBoxElement.style.display = 'block';
+
+      if (!debtCanBePaidOff) {
+        document.getElementById('debt-free-date').textContent = 'Never';
+        document.getElementById('debt-free-months').textContent = '∞';
+        document.getElementById('debt-total-interest').textContent = 'Escalating';
+        document.getElementById('node-debt').className = 'timeline-node phase-debt active';
+        document.getElementById('status-debt').textContent = 'Stalled';
+        document.getElementById('date-debt').textContent = '—';
+      } else {
+        let targetDate = new Date();
+        targetDate.setMonth(today.getMonth() + monthsToDebtFree);
+        debtFreeDateStr = targetDate.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
+        document.getElementById('debt-free-date').textContent = debtFreeDateStr;
+        document.getElementById('debt-free-months').textContent = monthsToDebtFree;
+        document.getElementById('debt-total-interest').textContent = formatCurrency(totalDebtInterestFriction);
+        document.getElementById('node-debt').className = 'timeline-node phase-debt active';
+        document.getElementById('status-debt').textContent = 'Active';
+        document.getElementById('date-debt').textContent = debtFreeDateStr;
+      }
     }
 
     // Emergency Buffer Runway Tracking
@@ -1230,28 +1242,23 @@
     let compoundingGrowthGain = terminalNetWorthResult - liquidPortfolioPool;
     document.getElementById('fv-gain').textContent = `+${formatCurrency(compoundingGrowthGain)} in capital generation growth`;
 
-    // ── FIXED COLD MATH ENGINE: AGE 60-90 RETIREMENT DRAWDOWN ──
+    // ── AGE 60-90 RETIREMENT DRAWDOWN ENGINE ──
     let drawdownLabels = [];
     let drawdownTrajectory = [];
     
     let drawPool = Math.max(terminalNetWorthResult, 0);
     let initialWithdrawalAmount = drawPool * 0.04; 
     let currentYearlyWithdrawal = initialWithdrawalAmount;
-    const assumedDrawdownGrowthRate = 0.05; // Locked to 5% growth/year
-    const standardInflationMultiplier = 0.03; // Adjusts cost of living up by 3%/year
+    const assumedDrawdownGrowthRate = 0.05; 
+    const standardInflationMultiplier = 0.03; 
 
     drawdownLabels.push("Age 60");
     drawdownTrajectory.push(drawPool);
 
     for (let currentAgeTracker = 61; currentAgeTracker <= 90; currentAgeTracker++) {
       if (drawPool > 0) {
-        // Step 1: Portfolio achieves exactly 5% annual growth
         drawPool *= (1 + assumedDrawdownGrowthRate);
-        
-        // Step 2: Inflate the structural living expense requirement by 3%
         currentYearlyWithdrawal *= (1 + standardInflationMultiplier);
-        
-        // Step 3: Extract the inflated requirement from principal
         drawPool -= currentYearlyWithdrawal;
         if (drawPool < 0) drawPool = 0;
       } else {
@@ -1455,7 +1462,7 @@
       }
     });
 
-    // Safe Multi-render Check: Find or create the drawdown display architecture container layout
+    // Multi-render Check: Find or construct the drawdown panel frame element architecture
     let ddWrapper = document.getElementById('drawdown-container-block');
     if (!ddWrapper) {
       const initialChartWrapper = document.getElementById('growthChart').parentElement;

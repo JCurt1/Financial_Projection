@@ -1119,10 +1119,13 @@ if (currentDebt > 0) {
     document.getElementById('fi-progress-pct').textContent = Math.min(progressPct, 100).toFixed(1) + '%';
 
     // Coast and Full Financial Independence Horizons Loop
-    const annualYield = state.marketYield / 100;
-    const inflationRate = (state.inflationRate || 3) / 100;
-    const cashYield = (state.cashYield || 4) / 100;
-    const debtRate = (state.debtInterestRate || 18) / 100;
+    let annualYield = state.marketYield / 100;
+    let inflationRate = (state.inflationRate || 3) / 100;
+    let cashYieldAnnual = (state.cashYield || 4) / 100;
+    let debtRate = (state.debtInterestRate || 18) / 100;
+
+    let currentSimulationAge = state.initialAge;
+    let targetHorizonAge = 90;
 
     let labelsCollection = [];
     let trajectoryCollection = [];
@@ -1132,28 +1135,23 @@ if (currentDebt > 0) {
     let simRetirement = state.retirement;
     let simDebt = state.consumerDebt;
 
-    const currentAge = state.initialAge;
-    const targetHorizonAge = 95;
-    const retirementAge = state.retirementAge || 65;
+    let monthlyExpensesSim = state.monthlyExpenses;
 
-    let annualExpenses = state.monthlyExpenses * 12;
+    let employerMatchMonthly = (state.grossIncome * (state.employerMatch / 100)) / 12;
 
-    let totalNW = simCash + simBrokerage + simRetirement - simDebt;
-
-    labelsCollection.push("Age " + currentAge);
-    trajectoryCollection.push(totalNW);
+    let currentCompoundingNW = simCash + simBrokerage + simRetirement - simDebt;
 
     let absoluteFiAchievedAge = null;
     let absoluteCoastAchievedAge = null;
 
-    const monthlyEmployerMatch =
-      (state.grossIncome * (state.employerMatch / 100)) / 12;
+    labelsCollection.push("Age " + currentSimulationAge);
+    trajectoryCollection.push(currentCompoundingNW);
 
-    for (let age = currentAge + 1; age <= targetHorizonAge; age++) {
+    for (let age = currentSimulationAge; age <= targetHorizonAge; age++) {
 
       for (let month = 0; month < 12; month++) {
 
-        simCash *= (1 + cashYield / 12);
+        simCash *= (1 + cashYieldAnnual / 12);
         simBrokerage *= (1 + annualYield / 12);
         simRetirement *= (1 + annualYield / 12);
 
@@ -1161,75 +1159,83 @@ if (currentDebt > 0) {
           simDebt *= (1 + debtRate / 12);
         }
 
-        let monthlyFlow;
+        let monthlyCashFlow = calculatedSavingsMargin;
 
-        if (age < retirementAge) {
-          monthlyFlow = calculatedSavingsMargin;
-          simRetirement += monthlyEmployerMatch;
-        } else {
-          monthlyFlow = -(annualExpenses / 12);
-        }
+        // Inflation slowly increases expenses.
+        monthlyCashFlow -= (monthlyExpensesSim - state.monthlyExpenses);
 
-        if (monthlyFlow > 0) {
+        if (monthlyCashFlow >= 0) {
 
-          let surplus = monthlyFlow;
+          let surplus = monthlyCashFlow;
 
           if (simDebt > 0) {
-            let paydown = Math.min(surplus, simDebt);
-            simDebt -= paydown;
-            surplus -= paydown;
+            let debtPayment = Math.min(surplus, simDebt);
+            simDebt -= debtPayment;
+            surplus -= debtPayment;
           }
 
-          const efTarget = annualExpenses / 2;
+          let emergencyFundTarget = monthlyExpensesSim * 6;
 
-          if (simCash < efTarget) {
-            let addCash = Math.min(surplus, efTarget - simCash);
+          if (simCash < emergencyFundTarget) {
+            let addCash = Math.min(surplus, emergencyFundTarget - simCash);
             simCash += addCash;
             surplus -= addCash;
           }
 
           simBrokerage += surplus;
+          simRetirement += employerMatchMonthly;
 
-        } else if (monthlyFlow < 0) {
+        } else {
 
-          let need = Math.abs(monthlyFlow);
+          let shortfall = Math.abs(monthlyCashFlow);
 
-          let fromCash = Math.min(need, simCash);
-          simCash -= fromCash;
-          need -= fromCash;
+          let cashUsed = Math.min(shortfall, simCash);
+          simCash -= cashUsed;
+          shortfall -= cashUsed;
 
-          let fromBrokerage = Math.min(need / 0.85, simBrokerage);
-          simBrokerage -= fromBrokerage;
-          need -= fromBrokerage * 0.85;
-
-          if (need > 0) {
-            const withdrawalFactor = age < 59.5 ? 0.68 : 0.78;
-            let fromRet = Math.min(need / withdrawalFactor, simRetirement);
-            simRetirement -= fromRet;
-            need -= fromRet * withdrawalFactor;
+          if (shortfall > 0) {
+            // Approximate 15% capital-gains drag.
+            let brokerageNeeded = shortfall / 0.85;
+            let brokerageUsed = Math.min(brokerageNeeded, simBrokerage);
+            simBrokerage -= brokerageUsed;
+            shortfall -= brokerageUsed * 0.85;
           }
+
+          if (shortfall > 0) {
+            let penaltyFactor = age < 59.5 ? (1 - 0.22 - 0.10) : (1 - 0.22);
+            let retirementNeeded = shortfall / penaltyFactor;
+            let retirementUsed = Math.min(retirementNeeded, simRetirement);
+            simRetirement -= retirementUsed;
+            shortfall -= retirementUsed * penaltyFactor;
+          }
+
+          if (shortfall > 0) {
+            age = targetHorizonAge + 1;
+            break;
+          }
+        }
+
+        currentCompoundingNW = simCash + simBrokerage + simRetirement - simDebt;
+
+        let annualSpend = monthlyExpensesSim * 12;
+        let fiTargetDynamic = annualSpend * 25;
+
+        if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetDynamic) {
+          absoluteFiAchievedAge = age;
+        }
+
+        let yearsTo65 = Math.max(65 - age, 0);
+        let coastTarget = fiTargetDynamic / Math.pow(1 + annualYield, yearsTo65);
+
+        if (!absoluteCoastAchievedAge && currentCompoundingNW >= coastTarget) {
+          absoluteCoastAchievedAge = age;
         }
       }
 
-      annualExpenses *= (1 + inflationRate);
-
-      totalNW = simCash + simBrokerage + simRetirement - simDebt;
-
-      const fiTarget = annualExpenses * 25;
-
-      if (!absoluteFiAchievedAge && totalNW >= fiTarget) {
-        absoluteFiAchievedAge = age;
-      }
-
-      const yearsToRetirement = Math.max(retirementAge - age, 0);
-      const coastTarget = fiTarget / Math.pow(1 + annualYield, yearsToRetirement);
-
-      if (!absoluteCoastAchievedAge && totalNW >= coastTarget) {
-        absoluteCoastAchievedAge = age;
-      }
+      monthlyExpensesSim *= (1 + inflationRate);
 
       labelsCollection.push("Age " + age);
-      trajectoryCollection.push(totalNW);
+      trajectoryCollection.push(currentCompoundingNW);
     }
 
 // Set interactive visualization text elements

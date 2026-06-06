@@ -1,0 +1,33 @@
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 16px;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--surface-2);
+}
+.metric-row:last-child { border-bottom: none; }
+.metric-meta { display: flex; flex-direction: column; }
+.metric-title { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+.metric-desc { font-size: 11px; color: var(--text-secondary); }
+.metric-value { font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500; }
+.metric-value.good { color: var(--green); }
+.metric-value.warning { color: var(--amber); }
+
+.donut-container { height: 180px; margin-top: 15px; position: relative; }

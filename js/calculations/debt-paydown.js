@@ -71,5 +71,6 @@ export function computeDebtPaydown(state, savingsMargin) {
     statusLabel,
     dateLabel,
     monthlyDebtApr,
+	consumerDebt: state.consumerDebt,
   };
 }

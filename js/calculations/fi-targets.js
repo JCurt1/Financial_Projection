@@ -1,0 +1,22 @@
+import { FI_MULTIPLIER, COAST_FI_REFERENCE_AGE } from '../config/constants.js';
+
+export function computeFITargets(state, balanceSheet) {
+  const annualExpenses = (state.monthlyExpenses || 1) * 12;
+  const fiTargetNumber = annualExpenses * FI_MULTIPLIER;
+  const progressPct = Math.min((balanceSheet.totalAssets / (fiTargetNumber || 1)) * 100, 100);
+
+  const annualYield = state.marketYield / 100;
+  const yearsRemainingTo65 = Math.max(COAST_FI_REFERENCE_AGE - state.initialAge, 0);
+  const coastThreshold = fiTargetNumber / Math.pow(1 + annualYield, yearsRemainingTo65);
+
+  // Liquid portfolio pool used for immediate coast/FI checks
+  const liquidPortfolioPool = state.retirement + state.brokerage - state.consumerDebt;
+
+  return {
+    fiTargetNumber,
+    progressPct,
+    coastThreshold,
+    liquidPortfolioPool,
+    annualYield,
+  };
+}

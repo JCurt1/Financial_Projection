@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Financial Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/tokens.css" />
+<link rel="stylesheet" href="css/base.css" />
+<link rel="stylesheet" href="css/layout.css" />
+<link rel="stylesheet" href="css/components/networth-bar.css" />
+<link rel="stylesheet" href="css/components/balance-sheet.css" />
+<link rel="stylesheet" href="css/components/income-panel.css" />
+<link rel="stylesheet" href="css/components/timeline.css" />
+<link rel="stylesheet" href="css/components/diagnostics.css" />
+<link rel="stylesheet" href="css/components/health-metrics.css" />
+<link rel="stylesheet" href="css/components/projector.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <a class="header-logo" href="#">
+      <div class="logo-icon">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      Finfolio
+    </a>
+  </div>
+  <div class="header-right">
+    <span class="header-date" id="header-date"></span>
+    <button class="theme-btn" id="theme-toggle" aria-label="Toggle Theme">
+      <span id="theme-icon">🌙</span>
+      <span id="theme-text">Dark Mode</span>
+    </button>
+  </div>
+</header>
+
+<div class="container">
+
+  <h1 class="page-title">Financial Command Center</h1>
+  <p class="page-subtitle">Track your true net worth, debt burn-down, and emergency readiness in real time.</p>
+
+  <div class="networth-bar">
+    <div class="nw-item">
+      <div class="nw-label">True Net Worth</div>
+      <div class="nw-value green" id="networth-display">$0</div>
+      <div class="nw-subtext">Assets minus liabilities</div>
+    </div>
+    <div class="nw-item">
+      <div class="nw-label">Total Assets</div>
+      <div class="nw-value" id="assets-display">$0</div>
+      <div class="nw-subtext">Everything you own</div>
+    </div>
+    <div class="nw-item">
+      <div class="nw-label">Total Liabilities</div>
+      <div class="nw-value" style="color: var(--red);" id="liabilities-display">$0</div>
+      <div class="nw-subtext">Everything you owe</div>
+    </div>
+  </div>
+
+  <p class="section-label">Household Balance Sheet — Click values to edit</p>
+  <div class="cards-grid" id="cards">
+
+    <div class="asset-card asset" data-key="cash">
+      <div class="card-top">
+        <span class="card-badge badge-blue">Liquid Cash</span>
+      </div>
+      <div class="card-label">Checking &amp; Savings</div>
+      <div class="card-input-row">
+        <span class="card-prefix">$</span>
+        <input class="card-input" type="text" value="4,500" />
+      </div>
+      <div class="card-sub">Emergency fund &amp; operating cash</div>
+    </div>
+
+    <div class="asset-card asset" data-key="retirement">
+      <div class="card-top">
+        <span class="card-badge badge-green">Tax-Advantaged</span>
+      </div>
+      <div class="card-label">Retirement (401k / IRA)</div>
+      <div class="card-input-row">
+        <span class="card-prefix">$</span>
+        <input class="card-input" type="text" value="22,000" />
+      </div>
+      <div class="card-sub">Locked growth portfolio</div>
+    </div>
+
+    <div class="asset-card asset" data-key="homeValue">
+      <div class="card-top">
+        <span class="card-badge badge-purple">Property</span>
+      </div>
+      <div class="card-label">Primary Home Value</div>
+      <div class="card-input-row">
+        <span class="card-prefix">$</span>
+        <input class="card-input" type="text" value="0" />
+      </div>
+      <div class="card-sub">Current estimated market value</div>
+    </div>
+
+    <div class="asset-card asset" data-key="brokerage">
+      <div class="card-top">
+        <span class="card-badge badge-amber">Taxable Investment</span>
+      </div>
+      <div class="card-label">Brokerage &amp; Hard Assets</div>
+      <div class="card-input-row">
+        <span class="card-prefix">$</span>
+        <input class="card-input" type="text" value="8,500" />
+      </div>
+      <div class="card-sub">Stocks, precious metals, crypto</div>
+    </div>
+
+    <div class="asset-card liability" data-key="consumerDebt">
+      <div class="card-top">
+        <span class="card-badge badge-red">High-Priority Debt</span>
+      </div>
+      <div class="card-label">Credit Cards &amp; Consumer Loans</div>
+      <div class="card-input-row">
+        <span class="card-prefix">$</span>
+        <input class="card-input" type="text" value="17,000" />
+      </div>
+      <div class="card-sub">Cards, auto loans, student loans</div>
+    </div>
+
+    <div class="asset-card liability" data-key="mortgage">
+      <div class="card-top">
+        <span class="card-badge badge-red">Long-Term Debt</span>
+      </div>
+      <div class="card-label">Mortgage Balance</div>
+      <div class="card-input-row">
+        <span class="card-prefix">$</span>
+        <input class="card-input" type="text" value="0" />
+      </div>
+      <div class="card-sub">Remaining property loan principal</div>
+    </div>
+
+  </div>
+
+  <div class="full-panel">
+    <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
+    <div class="income-grid">
+      <div class="income-input-group">
+        <label for="in-gross">Gross Annual Pay</label>
+        <div class="income-field-wrap">
+          <span>$</span>
+          <input type="text" id="in-gross" class="mono-type" value="50,000" />
+        </div>
+      </div>
+      <div class="income-input-group">
+        <label for="in-status">Filing Status</label>
+        <div class="income-field-wrap">
+          <select id="in-status">
+            <option value="single" selected>Single Filer</option>
+            <option value="married">Married (Joint)</option>
+          </select>
+        </div>
+      </div>
+      <div class="income-input-group">
+        <label for="in-401k-pct">Your 401(k) Deferral</label>
+        <div class="income-field-wrap">
+          <input type="text" id="in-401k-pct" class="mono-type" value="15" style="text-align: right; padding-right: 4px;" />
+          <span>%</span>
+        </div>
+      </div>
+      <div class="income-input-group">
+        <label for="in-match-pct">Employer Match</label>
+        <div class="income-field-wrap">
+          <input type="text" id="in-match-pct" class="mono-type" value="4" style="text-align: right; padding-right: 4px;" />
+          <span>%</span>
+        </div>
+      </div>
+      <div class="income-input-group">
+        <label for="in-health-raw">Monthly Health Cost</label>
+        <div class="income-field-wrap">
+          <span>$</span>
+          <input type="text" id="in-health-raw" class="mono-type" value="150" />
+        </div>
+        <div class="tier-toggle-row">
+          <button class="tier-btn active" id="tier-single" type="button">Single</button>
+          <button class="tier-btn" id="tier-spouse" type="button">Spouse</button>
+          <button class="tier-btn" id="tier-family" type="button">Family</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="income-grid" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
+      <div class="cashflow-summary" style="border-left-color: var(--blue);">
+        <span class="cf-label">Est. Avg Monthly Tax</span>
+        <span class="cf-val" style="color: var(--blue);" id="cf-tax-withheld">$0/mo</span>
+      </div>
+      <div class="cashflow-summary" style="border-left-color: var(--purple);">
+        <span class="cf-label">Base Take-Home Pay</span>
+        <span class="cf-val" style="color: var(--purple);" id="cf-takehome">$0/mo</span>
+      </div>
+      <div class="cashflow-summary" style="border-left-color: var(--amber);" id="maxout-alert-box">
+        <span class="cf-label">401(k) Max-Out Target</span>
+        <span class="cf-val" style="color: var(--amber);" id="cf-maxout-status">Full Year</span>
+      </div>
+      <div class="cashflow-summary" id="cf-surplus-box" style="border-left-color: var(--green);">
+        <span class="cf-label">Net Savings Margin</span>
+        <span class="cf-val" style="color: var(--green);" id="cf-surplus">$0/mo</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="full-panel">
+    <p class="section-label" style="margin-top: 0;">Milestone Waterfall Tracker</p>
+    <div class="timeline-container">
+
+      <div class="timeline-node phase-debt" id="node-debt">
+        <div class="timeline-dot">🔥</div>
+        <div class="timeline-meta">
+          <div class="timeline-title">Debt Free</div>
+          <div class="timeline-status" id="status-debt">Active</div>
+          <div class="timeline-date" id="date-debt">—</div>
+        </div>
+      </div>
+
+      <div class="timeline-node phase-runway" id="node-runway">
+        <div class="timeline-dot">🛡️</div>
+        <div class="timeline-meta">
+          <div class="timeline-title">6-Mo Runway</div>
+          <div class="timeline-status" id="status-runway">Locked</div>
+          <div class="timeline-date" id="date-runway">—</div>
+        </div>
+      </div>
+
+      <div class="timeline-node phase-coast" id="node-coast">
+        <div class="timeline-dot">⛵</div>
+        <div class="timeline-meta">
+          <div class="timeline-title">Coast FI</div>
+          <div class="timeline-status" id="status-coast">Locked</div>
+          <div class="timeline-date" id="date-coast">—</div>
+        </div>
+      </div>
+
+      <div class="timeline-node phase-fi" id="node-fi">
+        <div class="timeline-dot">🚀</div>
+        <div class="timeline-meta">
+          <div class="timeline-title">Full FI</div>
+          <div class="timeline-status" id="status-fi">Locked</div>
+          <div class="timeline-date" id="date-fi">—</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="diagnostics-split">
+
+    <div class="diag-panel debt-theme" id="debt-burn-panel">
+      <div class="diag-header-row">
+        <span class="diag-headline">🔥 High-Priority Debt Burn-Down</span>
+        <div class="diag-rate-wrap">
+          <label for="debt-apr-input">APR:</label>
+          <input type="text" id="debt-apr-input" value="12" />
+          <span>%</span>
+        </div>
+      </div>
+      <div class="diag-metrics-grid">
+        <div class="diag-metric-box">
+          <span class="diag-box-title">Freedom Date</span>
+          <div class="diag-box-value" style="color: var(--green);" id="debt-free-date">—</div>
+        </div>
+        <div class="diag-metric-box">
+          <span class="diag-box-title">Months Left</span>
+          <div class="diag-box-value" id="debt-free-months">—</div>
+        </div>
+        <div class="diag-metric-box">
+          <span class="diag-box-title">Friction Interest</span>
+          <div class="diag-box-value" style="color: var(--amber);" id="debt-total-interest">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="diag-panel fi-theme">
+      <div class="diag-header-row">
+        <span class="diag-headline">🚀 Financial Independence Checkpoint</span>
+        <span class="cf-label" style="color: var(--text-secondary); font-size: 10px;">Waterfall Forecast Target</span>
+      </div>
+      <div class="diag-metrics-grid">
+        <div class="diag-metric-box">
+          <span class="diag-box-title">FI Target (25x)</span>
+          <div class="diag-box-value" style="color: var(--blue);" id="fi-number-target">—</div>
+        </div>
+        <div class="diag-metric-box">
+          <span class="diag-box-title">Current Progress</span>
+          <div class="diag-box-value" id="fi-progress-pct">—</div>
+        </div>
+        <div class="diag-metric-box">
+          <span class="diag-box-title">FI Freedom Date</span>
+          <div class="diag-box-value" style="color: var(--purple);" id="fi-freedom-date">—</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="two-col">
+
+    <div class="panel">
+      <p class="section-label" style="margin-top: 0;">Financial Health Diagnostics</p>
+
+      <div class="slider-group" style="margin-top: 10px; margin-bottom: 24px;">
+        <div class="slider-label">
+          Estimated Monthly Household Expenses
+          <input type="text" class="slider-input" id="txt-expenses" value="$3,200/mo" />
+        </div>
+        <input type="range" min="0" max="25000" step="1" value="3200" id="sl-expenses" />
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-meta">
+          <span class="metric-title">Emergency Buffer</span>
+          <span class="metric-desc">Cash coverage based on monthly spend</span>
+        </div>
+        <span class="metric-value" id="metric-emergency-runway">—</span>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-meta">
+          <span class="metric-title">Replenishment Horizon</span>
+          <span class="metric-desc">Time required to seed a solid 6-mo buffer</span>
+        </div>
+        <span class="metric-value" id="metric-replenish-time">—</span>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-meta">
+          <span class="metric-title">Home Equity</span>
+          <span class="metric-desc">The slice of your home you completely own</span>
+        </div>
+        <span class="metric-value good" id="metric-home-equity">—</span>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-meta">
+          <span class="metric-title">Debt-to-Asset Ratio</span>
+          <span class="metric-desc">Total leverage safety percentage</span>
+        </div>
+        <span class="metric-value" id="metric-debt-ratio">—</span>
+      </div>
+
+      <div class="donut-container">
+        <canvas id="assetDonut"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="diag-header-row">
+        <p class="section-label" style="margin-top: 0; margin-bottom: 0;">Tethered Wealth Compounding Engine</p>
+        <div style="display: flex; gap: 8px;">
+          <div class="diag-rate-wrap">
+            <label for="txt-age">Current Age:</label>
+            <input type="text" id="txt-age" value="31" style="width: 20px;" />
+          </div>
+          <div class="diag-rate-wrap">
+            <label for="txt-rate">Market Yield:</label>
+            <input type="text" id="txt-rate" value="7.0" style="width: 24px;" />
+            <span>%</span>
+          </div>
+        </div>
+        <input type="range" min="0" max="15" step="0.1" value="7" id="sl-rate" style="display: none;" />
+      </div>
+      <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; margin-top: 2px;">
+        This engine simulates compounding growth from your initial age up to a target horizon of Age 60.
+      </p>
+
+      <div class="fv-result">
+        <div class="fv-label" id="fv-target-label">Projected Portfolio at Age 60</div>
+        <div class="fv-value" id="fv-display">—</div>
+        <div class="fv-gain" id="fv-gain">—</div>
+      </div>
+
+      <div class="growth-wrap">
+        <canvas id="growthChart"></canvas>
+      </div>
+
+      <div id="drawdown-container-block" class="drawdown-container">
+        <p class="drawdown-title">Age 60-90 Retirement Drawdown Timeline (5% Growth, 4% Initial Rule + 3% Inflation)</p>
+        <div class="drawdown-wrap">
+          <canvas id="drawdownChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="footer-note">Privacy Safeguard: Financial data is securely processing on your device. No information is transmitted across the web.</p>
+
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

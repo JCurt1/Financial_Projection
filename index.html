@@ -349,13 +349,17 @@
       </div>
     </div>
 
-    <div class="panel">
+<div class="panel">
       <div class="diag-header-row">
         <p class="section-label" style="margin-top: 0; margin-bottom: 0;">Tethered Wealth Compounding Engine</p>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <div class="diag-rate-wrap">
             <label for="txt-age">Current Age:</label>
             <input type="text" id="txt-age" value="31" style="width: 20px;" />
+          </div>
+          <div class="diag-rate-wrap">
+            <label for="txt-target-age">Retire Age:</label>
+            <input type="text" id="txt-target-age" value="65" style="width: 20px;" />
           </div>
           <div class="diag-rate-wrap">
             <label for="txt-rate">Market Yield:</label>
@@ -366,11 +370,11 @@
         <input type="range" min="0" max="15" step="0.1" value="7" id="sl-rate" style="display: none;" />
       </div>
       <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; margin-top: 2px;">
-        This engine simulates compounding growth from your initial age up to a target horizon of Age 60.
+        This engine simulates compounding growth from your initial age up to your selected target retirement age.
       </p>
 
       <div class="fv-result">
-        <div class="fv-label" id="fv-target-label">Projected Portfolio at Age 60</div>
+        <div class="fv-label" id="fv-target-label">Projected Portfolio at Retirement</div>
         <div class="fv-value" id="fv-display">—</div>
         <div class="fv-gain" id="fv-gain">—</div>
       </div>
@@ -380,13 +384,12 @@
       </div>
 
       <div id="drawdown-container-block" class="drawdown-container">
-        <p class="drawdown-title">Age 60-90 Retirement Drawdown Timeline (5% Growth, 4% Initial Rule + 3% Inflation)</p>
+        <p class="drawdown-title" id="drawdown-title-text">Retirement Drawdown Timeline (5% Growth, 4% Initial Rule + 3% Inflation)</p>
         <div class="drawdown-wrap">
           <canvas id="drawdownChart"></canvas>
         </div>
       </div>
     </div>
-
   </div>
 
   <p class="footer-note">Privacy Safeguard: Financial data is securely processing on your device. No information is transmitted across the web.</p>

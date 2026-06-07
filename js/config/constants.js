@@ -1,6 +1,14 @@
-export const MAX_401K = 23500;
+// Individual employee elective deferral limits
+export const MAX_401K_INDIVIDUAL = 24500; 
+
+// HSA Contribution Limits (Triple Tax Advantaged)
+export const HSA_LIMITS = {
+  single: 4300,
+  married: 8550, // Standard family/household tier limit
+};
+
 export const FI_MULTIPLIER = 25;
-export const DEFAULT_TARGET_HORIZON_AGE = 60; // Renamed to clarify it is a fallback default
+export const DEFAULT_TARGET_HORIZON_AGE = 60; 
 export const COAST_FI_REFERENCE_AGE = 65;
 export const MAX_MONTHLY_EXPENSES = 25000;
 export const MIN_AGE = 18;
@@ -15,7 +23,7 @@ export const HEALTH_TIERS = {
 export const DRAWDOWN_GROWTH_RATE = 0.05;
 export const DRAWDOWN_INITIAL_WITHDRAWAL_RATE = 0.04;
 export const DRAWDOWN_INFLATION_RATE = 0.03;
-export const DRAWDOWN_END_AGE = 90; // Fallback default end window
+export const DRAWDOWN_END_AGE = 90; 
 
 export const STANDARD_DEDUCTION = {
   single: 16100,

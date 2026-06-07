@@ -199,3 +199,86 @@ export function simulateWealth(state, deps) {
     drawdownTimelineData, 
   };
 }
+
+// --- BOX-MULLER GAUSSIAN RANDOMIZER ---
+// Transforms uniform random variables into a normal distribution bell curve
+function generateGaussianRandom(mean, standardDeviation) {
+  let u = 0, v = 0;
+  while(u === 0) u = Math.random(); // Converting [0,1) to (0,1)
+  while(v === 0) v = Math.random();
+  
+  // Standard Box-Muller transform equation
+  const standardNormal = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  
+  // Scale and shift by your asset configuration parameters
+  return mean + standardNormal * standardDeviation;
+}
+
+// --- CORE MONTE CARLO STRESS TEST ENGINE ---
+export function runMonteCarloSimulation(state, terminalAccumulatedNW) {
+  const iterations = 1000; // 1,000 runs gives excellent precision without slowing down the UI
+  const currentAge = state.targetHorizonAge || 60; // Simulation begins exactly when retirement starts
+  const endAge = 90; 
+  const totalYears = endAge - currentAge;
+  
+  const expectedMeanReturn = (state.marketYield / 100); 
+  const marketVolatility = 0.15; // Standard historical S&P 500 volatility baseline (15%)
+  let indexedAnnualSpending = state.monthlyExpenses * 12;
+  const inflationRate = 0.025; // 2.5% structural cost matching your drawdown matrix
+
+  const terminalBalancesCollection = [];
+
+  // Run 1,000 independent lifespans
+  for (let simRun = 0; simRun < iterations; simRun++) {
+    let currentRunBalance = terminalAccumulatedNW;
+    let runSpendingTarget = indexedAnnualSpending;
+    let isDepleted = false;
+
+    for (let year = 0; year < totalYears; year++) {
+      // 1. Generate a completely unique, randomized market return for this specific year
+      const randomizedAnnualYield = generateGaussianRandom(expectedMeanReturn, marketVolatility);
+      
+      // 2. Account for your dynamic tax barrier drag
+      // We safely approximate a 15% effective blended tax rate hit on pre-tax withdrawals 
+      // during chaotic sequences to keep computations lightning fast
+      const estimatedTaxBrake = 1.15; 
+      const totalYearlyOutflow = runSpendingTarget * estimatedTaxBrake;
+
+      // 3. Execute the cash drawdown mechanics
+      currentRunBalance = currentRunBalance - totalYearlyOutflow;
+
+      if (currentRunBalance <= 0) {
+        currentRunBalance = 0;
+        isDepleted = true;
+        break; 
+      }
+
+      // 4. Compound the remaining nest egg by the randomized yield factor
+      currentRunBalance *= (1 + randomizedAnnualYield);
+      
+      // 5. Adjust spending target upward for structural inflation
+      runSpendingTarget *= (1 + inflationRate);
+    }
+
+    terminalBalancesCollection.push(currentRunBalance);
+  }
+
+  // --- CALCULATION OF PERCENTILE CHANNELS ---
+  // Sort from absolute broke ($0) to hyper-growth millions
+  terminalBalancesCollection.sort((a, b) => a - b);
+
+  const totalSuccesses = terminalBalancesCollection.filter(balance => balance > 0).length;
+  const probabilityOfSuccess = (totalSuccesses / iterations) * 100;
+
+  // Extract critical statistical threshold markers
+  const p10Index = Math.floor(iterations * 0.10);
+  const p50Index = Math.floor(iterations * 0.50); // Median simulation path
+  const p90Index = Math.floor(iterations * 0.90);
+
+  return {
+    probabilityOfSuccess: Math.round(probabilityOfSuccess),
+    p10Baseline: terminalBalancesCollection[p10Index],
+    p50Baseline: terminalBalancesCollection[p50Index],
+    p90Baseline: terminalBalancesCollection[p90Index]
+  };
+}

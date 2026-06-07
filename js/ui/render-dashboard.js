@@ -5,6 +5,7 @@ import { renderDebtDiagnostics } from './debt-diagnostics.js';
 import { renderFIDiagnostics } from './fi-diagnostics.js';
 import { renderHealthMetrics } from './health-metrics.js';
 import { renderProjector } from './projector.js';
+import { renderMonteCarloDiagnostics } from './monte-carlo-diagnostics.js'; // Imported your new UI file
 import { updateGrowthChart } from './charts/growth-chart.js';
 import { updateDrawdownChart } from './charts/drawdown-chart.js';
 import { updateAssetDonut } from './charts/asset-donut.js';
@@ -17,6 +18,7 @@ export function renderDashboard(result) {
   renderFIDiagnostics(result);
   renderHealthMetrics(result);
   renderProjector(result);
+  renderMonteCarloDiagnostics(result); // Injected into the core rendering pipeline
 
   updateGrowthChart(result.simulation);
   updateDrawdownChart(result.drawdown);

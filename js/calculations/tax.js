@@ -20,7 +20,7 @@ export function computeTax(state) {
   // 3. Smart Tax Optimizer / Account Allocation Split
   let traditional401k = 0;
   let roth401k = 0;
-  const strategy = state.401kStrategy || 'optimize'; // Options: 'traditional', 'roth', 'optimize'
+  const strategy = state.strategy401k || 'optimize'; // Options: 'traditional', 'roth', 'optimize'
 
   if (strategy === 'traditional') {
     traditional401k = total401kDeferral;

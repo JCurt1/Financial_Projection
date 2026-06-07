@@ -14,4 +14,5 @@ export const DEFAULT_STATE = {
   debtApr: 12,
   marketYield: 7.0,
   initialAge: 31,
+  targetHorizonAge: 65, // <-- Add this final piece here!
 };

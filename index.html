@@ -141,7 +141,7 @@
 
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
-    <div class="income-grid">
+<div class="income-grid">
       <div class="income-input-group">
         <label for="in-gross">Gross Annual Pay</label>
         <div class="income-field-wrap">
@@ -156,6 +156,12 @@
             <option value="single" selected>Single Filer</option>
             <option value="married">Married (Joint)</option>
           </select>
+        </div>
+        <div id="spouse-working-wrap" style="display: none; margin-top: 8px;">
+          <label class="checkbox-container" style="font-size: 11px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+            <input type="checkbox" id="in-spouse-working" />
+            Spouse works & contributes to a 401(k)
+          </label>
         </div>
       </div>
       <div class="income-input-group">
@@ -182,6 +188,25 @@
           <button class="tier-btn active" id="tier-single" type="button">Single</button>
           <button class="tier-btn" id="tier-spouse" type="button">Spouse</button>
           <button class="tier-btn" id="tier-family" type="button">Family</button>
+        </div>
+        <div style="margin-top: 8px;">
+          <label class="checkbox-container" style="font-size: 11px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+            <input type="checkbox" id="in-has-hsa" />
+            Enrolled in HSA-Eligible HDHP Plan
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px;">
+      <div class="income-input-group" style="max-width: 400px;">
+        <label for="in-strategy" style="margin-bottom: 6px; display: block; font-weight: 500;">401(k) Contribution Strategy</label>
+        <div class="income-field-wrap">
+          <select id="in-strategy" style="width: 100%; padding: 6px; background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border); id='in-strategy'">
+            <option value="optimize" selected>Smart Tax Optimizer (Algorithmic)</option>
+            <option value="traditional">100% Traditional (Pre-Tax)</option>
+            <option value="roth">100% Roth (Post-Tax)</option>
+          </select>
         </div>
       </div>
     </div>

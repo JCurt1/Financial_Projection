@@ -25,13 +25,10 @@ function setHealthTier(tier) {
 }
 
 export function initIncomePanel() {
-  // Existing numeric inputs
   bindSyncInput('in-gross', 'grossIncome');
   bindSyncInput('in-401k-pct', 'deferral401k', true);
   bindSyncInput('in-match-pct', 'employerMatch', true);
   bindSyncInput('in-health-raw', 'healthCostMonthly');
-  
-  // Manual Monthly HSA Contribution
   bindSyncInput('in-hsa-monthly', 'hsaCostMonthly');
 
   const statusSelect = document.getElementById('in-status');
@@ -59,8 +56,8 @@ export function initIncomePanel() {
     });
   }
 
-  // --- DUAL SLIDER SYNC CONTROLLER ENGINE ---
-  // Reusable helper to lock sliders, input inputs, and states together
+  // --- REVERSED DUAL SLIDER SYNC ENGINE ---
+  // Slider now maps to Roth (Right = Increasing Roth)
   function setupSplitController({ sliderId, tradInputId, rothInputId, stateKey }) {
     const slider = document.getElementById(sliderId);
     const tradInput = document.getElementById(tradInputId);
@@ -68,46 +65,37 @@ export function initIncomePanel() {
 
     if (!slider) return;
 
-    function runSyncUpdate(tradValue) {
-      let cleanTrad = Math.min(100, Math.max(0, tradValue));
-      if (isNaN(cleanTrad)) cleanTrad = 50;
-      const cleanRoth = 100 - cleanTrad;
+    function runSyncUpdate(rothValue) {
+      let cleanRoth = Math.min(100, Math.max(0, rothValue));
+      if (isNaN(cleanRoth)) cleanRoth = 50;
+      const cleanTrad = 100 - cleanRoth;
 
-      slider.value = cleanTrad;
-      if (tradInput && document.activeElement !== tradInput) tradInput.value = cleanTrad;
-      if (rothInput) rothInput.value = cleanRoth;
+      slider.value = cleanRoth;
+      
+      if (rothInput && document.activeElement !== rothInput) rothInput.value = cleanRoth;
+      if (tradInput) tradInput.value = cleanTrad;
 
+      // Logic: Store the traditional percentage for calculation engine compatibility
       setState({ [stateKey]: cleanTrad });
     }
 
-    // Handle tracking drag movements on the range slider
     slider.addEventListener('input', (e) => {
       runSyncUpdate(parseInt(e.target.value, 10));
     });
 
-    // Handle active text adjustments in the numerical input field
-    if (tradInput) {
-      tradInput.addEventListener('input', (e) => {
+    if (rothInput) {
+      rothInput.addEventListener('input', (e) => {
         const val = parseInt(e.target.value, 10);
         if (!isNaN(val)) {
-          const boundedVal = Math.min(100, val);
-          slider.value = boundedVal;
-          if (rothInput) rothInput.value = 100 - boundedVal;
-          setState({ [stateKey]: boundedVal });
+          const boundedRoth = Math.min(100, val);
+          slider.value = boundedRoth;
+          if (tradInput) tradInput.value = 100 - boundedRoth;
+          setState({ [stateKey]: 100 - boundedRoth });
         }
-      });
-
-      tradInput.addEventListener('blur', () => {
-        runSyncUpdate(parseInt(tradInput.value, 10));
-      });
-
-      tradInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') tradInput.blur();
       });
     }
   }
 
-  // Bind Control Cluster 1: Existing Nest Egg Tax Breakdown
   setupSplitController({
     sliderId: 'in-current-split-slider',
     tradInputId: 'in-current-trad-split',
@@ -115,7 +103,6 @@ export function initIncomePanel() {
     stateKey: 'currentTradSplitPercent'
   });
 
-  // Bind Control Cluster 2: Future Deferrals Tax Breakdown
   setupSplitController({
     sliderId: 'in-future-split-slider',
     tradInputId: 'in-future-trad-split',
@@ -123,7 +110,6 @@ export function initIncomePanel() {
     stateKey: 'futureTradSplitPercent'
   });
 
-  // Health tier button listeners
   document.getElementById('tier-single').addEventListener('click', () => setHealthTier('single'));
   document.getElementById('tier-spouse').addEventListener('click', () => setHealthTier('spouse'));
   document.getElementById('tier-family').addEventListener('click', () => setHealthTier('family'));

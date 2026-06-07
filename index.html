@@ -213,14 +213,58 @@
       </div>
     </div>
 
-    <!-- Interactive 401(k) Split Slider Row -->
+ <!-- Tax Allocation Control Panel -->
     <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px;">
-      <div style="max-width: 400px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; font-weight: 500;">
-          <span style="color: var(--text-main);">Traditional: <span id="trad-split-label">50</span>%</span>
-          <span style="color: var(--text-main);">Roth: <span id="roth-split-label">50</span>%</span>
+      <h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-main); font-weight: 600; uppercase; letter-spacing: 0.5px;">
+        Tax Allocation Controls
+      </h4>
+
+      <!-- 1. STARTING BALANCE TAX SPLIT -->
+      <div style="margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px dotted var(--border);">
+        <label style="display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
+          Existing Retirement Nest Egg Tax Split (Starting Balance)
+        </label>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; color: var(--text-main);">Traditional:</span>
+            <div class="income-field-wrap" style="width: 60px; margin: 0;">
+              <input type="text" id="in-current-trad-split" class="mono-type" value="100" style="text-align: right; padding-right: 4px; font-size: 11px;" />
+              <span style="padding-right: 4px; font-size: 10px;">%</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; color: var(--text-main);">Roth:</span>
+            <div class="income-field-wrap" style="width: 60px; margin: 0; background: var(--bg-subtle);">
+              <input type="text" id="in-current-roth-split" class="mono-type" value="0" style="text-align: right; padding-right: 4px; font-size: 11px;" disabled />
+              <span style="padding-right: 4px; font-size: 10px;">%</span>
+            </div>
+          </div>
         </div>
-        <input type="range" id="in-401k-split" min="0" max="100" value="50" style="width: 100%; accent-color: var(--primary);" />
+        <input type="range" id="in-current-split-slider" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" />
+      </div>
+
+      <!-- 2. FUTURE PAYCHECK DEFERRAL TAX SPLIT -->
+      <div>
+        <label style="display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
+          Future Paycheck 401(k) Contribution Split
+        </label>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; color: var(--text-main);">Traditional:</span>
+            <div class="income-field-wrap" style="width: 60px; margin: 0;">
+              <input type="text" id="in-future-trad-split" class="mono-type" value="50" style="text-align: right; padding-right: 4px; font-size: 11px;" />
+              <span style="padding-right: 4px; font-size: 10px;">%</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; color: var(--text-main);">Roth:</span>
+            <div class="income-field-wrap" style="width: 60px; margin: 0; background: var(--bg-subtle);">
+              <input type="text" id="in-future-roth-split" class="mono-type" value="50" style="text-align: right; padding-right: 4px; font-size: 11px;" disabled />
+              <span style="padding-right: 4px; font-size: 10px;">%</span>
+            </div>
+          </div>
+        </div>
+        <input type="range" id="in-future-split-slider" min="0" max="100" value="50" style="width: 100%; accent-color: var(--primary);" />
       </div>
     </div>
 

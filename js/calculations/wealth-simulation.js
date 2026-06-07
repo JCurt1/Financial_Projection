@@ -1,11 +1,14 @@
-import { TARGET_HORIZON_AGE, COAST_FI_REFERENCE_AGE } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE } from '../config/constants.js';
 
 export function simulateWealth(state, deps) {
   const { tax, cashflow, debt, runway, fi } = deps;
   const { fiTargetNumber, liquidPortfolioPool, annualYield } = fi;
 
   const currentSimulationAge = state.initialAge;
-  const targetHorizonAge = TARGET_HORIZON_AGE;
+  
+  // FIX: Extract target horizon dynamically from central state, falling back to 60 if not yet set
+  const targetHorizonAge = state.targetHorizonAge || 60; 
+  
   const monthlyDebtApr = debt.monthlyDebtApr;
   const calculatedSavingsMargin = cashflow.savingsMargin;
   const monthsToDebtFree = debt.monthsToDebtFree;
@@ -22,6 +25,7 @@ export function simulateWealth(state, deps) {
   let simRetirement = state.retirement;
   let simDebt = state.consumerDebt;
 
+  // This loop now accurately tracks whatever age gap the user specifies
   let loopsTotal = targetHorizonAge - currentSimulationAge;
   if (loopsTotal <= 0) loopsTotal = 1;
 
@@ -120,6 +124,6 @@ export function simulateWealth(state, deps) {
     gain: compoundingGrowthGain,
     absoluteFiAchievedAge,
     absoluteCoastAchievedAge,
-    targetHorizonAge,
+    targetHorizonAge, // Passes the dynamic age directly out to computeAll
   };
 }

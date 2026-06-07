@@ -18,6 +18,6 @@ export const DRAWDOWN_INFLATION_RATE = 0.03;
 export const DRAWDOWN_END_AGE = 90; // Fallback default end window
 
 export const STANDARD_DEDUCTION = {
-  single: 14600,
-  married: 29200,
+  single: 16100,
+  married: 32200,
 };

@@ -16,6 +16,9 @@ export const DEFAULT_STATE = {
   initialAge: 31,
   targetHorizonAge: 65,
   spouseWorking: false,
-  hasHsa: false,
-  strategy401k: 'optimize', // Safe, clean semantic naming variable
+  hsaCostMonthly: 0, // Swapped from boolean to a clean starting dollar tracker
+  
+  // Decoupled tax allocation split defaults (Percentages)
+  currentTradSplitPercent: 100, // Existing nest egg defaults to 100% Traditional pre-tax
+  futureTradSplitPercent: 50,   // Future paychecks default to a balanced 50/50 split
 };

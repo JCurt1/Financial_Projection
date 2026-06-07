@@ -141,8 +141,7 @@
 
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
-<div class="income-grid">
-      <!-- Gross Pay -->
+    <div class="income-grid">
       <div class="income-input-group">
         <label for="in-gross">Gross Annual Pay</label>
         <div class="income-field-wrap">
@@ -151,7 +150,6 @@
         </div>
       </div>
 
-      <!-- Filing Status -->
       <div class="income-input-group">
         <label for="in-status">Filing Status</label>
         <div class="income-field-wrap">
@@ -168,7 +166,6 @@
         </div>
       </div>
 
-      <!-- Total 401k Pct -->
       <div class="income-input-group">
         <label for="in-401k-pct">Your 401(k) Deferral</label>
         <div class="income-field-wrap">
@@ -177,7 +174,6 @@
         </div>
       </div>
 
-      <!-- Match Pct -->
       <div class="income-input-group">
         <label for="in-match-pct">Employer Match</label>
         <div class="income-field-wrap">
@@ -186,7 +182,6 @@
         </div>
       </div>
 
-      <!-- Health Cost -->
       <div class="income-input-group">
         <label for="in-health-raw">Monthly Health Cost</label>
         <div class="income-field-wrap">
@@ -200,7 +195,6 @@
         </div>
       </div>
 
-      <!-- Manual Monthly HSA Contribution -->
       <div class="income-input-group">
         <label for="in-hsa-monthly">Monthly HSA Contribution</label>
         <div class="income-field-wrap">
@@ -213,13 +207,11 @@
       </div>
     </div>
 
- <!-- Tax Allocation Control Panel -->
     <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px;">
-      <h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-main); font-weight: 600; uppercase; letter-spacing: 0.5px;">
+      <h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-main); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
         Tax Allocation Controls
       </h4>
 
-      <!-- 1. STARTING BALANCE TAX SPLIT -->
       <div style="margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px dotted var(--border);">
         <label style="display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
           Existing Retirement Nest Egg Tax Split (Starting Balance)
@@ -243,7 +235,6 @@
         <input type="range" id="in-current-split-slider" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" />
       </div>
 
-      <!-- 2. FUTURE PAYCHECK DEFERRAL TAX SPLIT -->
       <div>
         <label style="display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
           Future Paycheck 401(k) Contribution Split
@@ -431,7 +422,7 @@
       </div>
     </div>
 
-<div class="panel">
+    <div class="panel">
       <div class="diag-header-row">
         <p class="section-label" style="margin-top: 0; margin-bottom: 0;">Tethered Wealth Compounding Engine</p>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -473,38 +464,44 @@
       </div>
     </div>
   </div>
-<div class="dashboard-card" style="margin-top: 24px; padding: 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-    <div>
-      <h3 style="margin: 0; font-size: 16px; color: var(--text-main); font-weight: 600;">
-        Monte Carlo Portfolio Risk Stress Test
-      </h3>
-      <p style="margin: 4px 0 0 0; font-size: 12px; color: var(--text-secondary);">
-        Simulating 1,000 randomized lifetime market volatility sequences from retirement onward.
-      </p>
+
+  <div class="dashboard-card" style="margin-top: 24px; padding: 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div>
+        <h3 style="margin: 0; font-size: 16px; color: var(--text-main); font-weight: 600;">
+          Monte Carlo Portfolio Risk Stress Test
+        </h3>
+        <p style="margin: 4px 0 0 0; font-size: 12px; color: var(--text-secondary);">
+          Simulating 1,000 randomized lifetime market volatility sequences from retirement onward.
+        </p>
+      </div>
+      <div id="mc-success-badge" style="padding: 8px 14px; border-radius: 20px; font-weight: 700; font-size: 18px; text-align: center;">
+        <span id="lbl-mc-probability">--</span>%
+      </div>
     </div>
-    <div id="mc-success-badge" style="padding: 8px 14px; border-radius: 20px; font-weight: 700; font-size: 18px; text-align: center;">
-      <span id="lbl-mc-probability">--</span>%
+
+    <div style="width: 100%; height: 220px; margin: 16px 0; position: relative;">
+      <canvas id="chart-monte-carlo"></canvas>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 16px;">
+      <div style="padding: 12px; background: var(--bg-subtle); border-radius: 6px; border-left: 4px solid #ff4d4d;">
+        <span style="display: block; font-size: 11px; color: var(--text-secondary); font-weight: 500;">10th Percentile (Severe Bear Market)</span>
+        <span id="lbl-mc-p10" class="mono-type" style="display: block; font-size: 16px; font-weight: 600; color: var(--text-main); margin-top: 4px;">$--</span>
+      </div>
+
+      <div style="padding: 12px; background: var(--bg-subtle); border-radius: 6px; border-left: 4px solid #3399ff;">
+        <span style="display: block; font-size: 11px; color: var(--text-secondary); font-weight: 500;">50th Percentile (Median Path)</span>
+        <span id="lbl-mc-p50" class="mono-type" style="display: block; font-size: 16px; font-weight: 600; color: var(--text-main); margin-top: 4px;">$--</span>
+      </div>
+
+      <div style="padding: 12px; background: var(--bg-subtle); border-radius: 6px; border-left: 4px solid #00cc66;">
+        <span style="display: block; font-size: 11px; color: var(--text-secondary); font-weight: 500;">90th Percentile (Strong Bull Market)</span>
+        <span id="lbl-mc-p90" class="mono-type" style="display: block; font-size: 16px; font-weight: 600; color: var(--text-main); margin-top: 4px;">$--</span>
+      </div>
     </div>
   </div>
 
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 16px;">
-    <div style="padding: 12px; background: var(--bg-subtle); border-radius: 6px; border-left: 4px solid #ff4d4d;">
-      <span style="display: block; font-size: 11px; color: var(--text-secondary); font-weight: 500;">10th Percentile (Severe Bear Market)</span>
-      <span id="lbl-mc-p10" class="mono-type" style="display: block; font-size: 16px; font-weight: 600; color: var(--text-main); margin-top: 4px;">$--</span>
-    </div>
-
-    <div style="padding: 12px; background: var(--bg-subtle); border-radius: 6px; border-left: 4px solid #3399ff;">
-      <span style="display: block; font-size: 11px; color: var(--text-secondary); font-weight: 500;">50th Percentile (Median Path)</span>
-      <span id="lbl-mc-p50" class="mono-type" style="display: block; font-size: 16px; font-weight: 600; color: var(--text-main); margin-top: 4px;">$--</span>
-    </div>
-
-    <div style="padding: 12px; background: var(--bg-subtle); border-radius: 6px; border-left: 4px solid #00cc66;">
-      <span style="display: block; font-size: 11px; color: var(--text-secondary); font-weight: 500;">90th Percentile (Strong Bull Market)</span>
-      <span id="lbl-mc-p90" class="mono-type" style="display: block; font-size: 16px; font-weight: 600; color: var(--text-main); margin-top: 4px;">$--</span>
-    </div>
-  </div>
-</div>
   <p class="footer-note">Privacy Safeguard: Financial data is securely processing on your device. No information is transmitted across the web.</p>
 
 </div>

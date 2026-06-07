@@ -473,7 +473,38 @@
       </div>
     </div>
   </div>
+<div class="dashboard-card" style="margin-top: 24px; padding: 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <div>
+      <h3 style="margin: 0; font-size: 16px; color: var(--text-main); font-weight: 600;">
+        Monte Carlo Portfolio Risk Stress Test
+      </h3>
+      <p style="margin: 4px 0 0 0; font-size: 12px; color: var(--text-secondary);">
+        Simulating 1,000 randomized lifetime market volatility sequences from retirement onward.
+      </p>
+    </div>
+    <div id="mc-success-badge" style="padding: 8px 14px; border-radius: 20px; font-weight: 700; font-size: 18px; text-align: center;">
+      <span id="lbl-mc-probability">--</span>%
+    </div>
+  </div>
 
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 16px;">
+    <div style="padding: 12px; background: var(--bg-subtle); border-radius: 6px; border-left: 4px solid #ff4d4d;">
+      <span style="display: block; font-size: 11px; color: var(--text-secondary); font-weight: 500;">10th Percentile (Severe Bear Market)</span>
+      <span id="lbl-mc-p10" class="mono-type" style="display: block; font-size: 16px; font-weight: 600; color: var(--text-main); margin-top: 4px;">$--</span>
+    </div>
+
+    <div style="padding: 12px; background: var(--bg-subtle); border-radius: 6px; border-left: 4px solid #3399ff;">
+      <span style="display: block; font-size: 11px; color: var(--text-secondary); font-weight: 500;">50th Percentile (Median Path)</span>
+      <span id="lbl-mc-p50" class="mono-type" style="display: block; font-size: 16px; font-weight: 600; color: var(--text-main); margin-top: 4px;">$--</span>
+    </div>
+
+    <div style="padding: 12px; background: var(--bg-subtle); border-radius: 6px; border-left: 4px solid #00cc66;">
+      <span style="display: block; font-size: 11px; color: var(--text-secondary); font-weight: 500;">90th Percentile (Strong Bull Market)</span>
+      <span id="lbl-mc-p90" class="mono-type" style="display: block; font-size: 16px; font-weight: 600; color: var(--text-main); margin-top: 4px;">$--</span>
+    </div>
+  </div>
+</div>
   <p class="footer-note">Privacy Safeguard: Financial data is securely processing on your device. No information is transmitted across the web.</p>
 
 </div>

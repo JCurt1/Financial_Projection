@@ -19,11 +19,13 @@ export function simulateWealth(state, deps) {
   const trajectoryCollection = [];
 
   // --- 1. INITIALIZE TAX-SEGREGATED PORTFOLIOS ---
-  // Split your starting retirement account based on your chosen slider ratio percentage
-  const tradRatio = (state.tradSplitPercent ?? 50) / 100;
+  // Decoupled: One ratio for your history, one ratio for your future
+  const currentTradRatio = (state.currentTradSplitPercent ?? 100) / 100;
+  const futureTradRatio = (state.futureTradSplitPercent ?? 50) / 100;
   
-  let simPreTaxPool = state.retirement * tradRatio;
-  let simPostTaxPool = state.brokerage + state.cash + (state.retirement * (1 - tradRatio));
+  // Split starting balances accurately based on past tax layout
+  let simPreTaxPool = state.retirement * currentTradRatio;
+  let simPostTaxPool = state.brokerage + state.cash + (state.retirement * (1 - currentTradRatio));
   let simDebt = state.consumerDebt;
   let currentCompoundingNW = simPreTaxPool + simPostTaxPool - simDebt;
 
@@ -34,12 +36,14 @@ export function simulateWealth(state, deps) {
   trajectoryCollection.push(currentCompoundingNW);
 
   // --- 2. EXTRACT TRACKED INFLOWS FROM YOUR TAX ENGINE ---
-  // Pre-tax streams: Employee Traditional 401(k) + ALL Company Matching Dollars
+  // Isolate standard employer matching percent logic
   const employerMatchPercent = Math.min(state.deferral401k, state.employerMatch || 0);
   const annualEmployerMatchDollars = state.grossIncome * (employerMatchPercent / 100);
+  
+  // New Pre-Tax Monthly Inflow: Traditional 401(k) + Company match dollars
   const monthlyPreTaxInflow = (tax.traditional401k + annualEmployerMatchDollars) / 12;
 
-  // Post-tax streams: Employee Roth 401(k) + HSA contributions
+  // New Post-Tax Monthly Inflow: Roth 401(k) + monthly HSA contributions
   const monthlyPostTaxInflow = (tax.roth401k + tax.traditionalHsa) / 12;
 
   let simulationMonthsOffset = 0;
@@ -147,7 +151,6 @@ export function simulateWealth(state, deps) {
     let baselinePostTaxPull = indexedAnnualSpendingRequirement * (1 - preTaxRatio);
 
     // DYNAMIC TAX ASSESSMENT ON PRE-TAX WITHDRAWALS
-    // We compute simulated ordinary federal tax assessed directly against the pre-tax distribution block
     const taxHitOnPreTaxWithdrawal = computeFederalTax(baselinePreTaxPull, state.filingStatus);
     
     let netPreTaxDeduction = baselinePreTaxPull + taxHitOnPreTaxWithdrawal;
@@ -192,7 +195,7 @@ export function simulateWealth(state, deps) {
     absoluteCoastAchievedAge,
     targetHorizonAge,
     
-    // EXPORT NEW RETIREMENT TIMELINE METRICS FOR CHARTING
+    // EXPORT RETIREMENT TIMELINE METRICS FOR CHARTING
     drawdownTimelineData, 
   };
 }

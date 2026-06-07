@@ -1,5 +1,5 @@
 import { MAX_401K_INDIVIDUAL, HSA_LIMITS, STANDARD_DEDUCTION } from '../config/constants.js';
-import { computeFederalTax } from './tax-brackets-2026.js';
+import { computeFederalTax } from '../config/tax-brackets-2026.js';
 
 export function computeTax(state) {
   const gross = state.grossIncome;

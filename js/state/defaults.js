@@ -15,14 +15,7 @@ export const DEFAULT_STATE = {
   marketYield: 7.0,
   initialAge: 31,
   targetHorizonAge: 65,
-  
-  // NEW FEAT: Dual Income Tracking
   spouseWorking: false,
-  
-  // NEW FEAT: Triple Tax-Advantaged HSA Health Mechanics
   hasHsa: false,
-  
-  // NEW FEAT: Smart Tax Allocation Engine Selection
-  // Acceptable Strategy Keys: 'traditional', 'roth', or 'optimize'
-  401kStrategy: 'optimize', 
+  strategy401k: 'optimize', // Safe, clean semantic naming variable
 };

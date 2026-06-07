@@ -142,6 +142,7 @@
   <div class="full-panel">
     <p class="section-label" style="margin-top: 0;">Income &amp; Smart Tax Optimizer</p>
 <div class="income-grid">
+      <!-- Gross Pay -->
       <div class="income-input-group">
         <label for="in-gross">Gross Annual Pay</label>
         <div class="income-field-wrap">
@@ -149,6 +150,8 @@
           <input type="text" id="in-gross" class="mono-type" value="50,000" />
         </div>
       </div>
+
+      <!-- Filing Status -->
       <div class="income-input-group">
         <label for="in-status">Filing Status</label>
         <div class="income-field-wrap">
@@ -164,6 +167,8 @@
           </label>
         </div>
       </div>
+
+      <!-- Total 401k Pct -->
       <div class="income-input-group">
         <label for="in-401k-pct">Your 401(k) Deferral</label>
         <div class="income-field-wrap">
@@ -171,6 +176,8 @@
           <span>%</span>
         </div>
       </div>
+
+      <!-- Match Pct -->
       <div class="income-input-group">
         <label for="in-match-pct">Employer Match</label>
         <div class="income-field-wrap">
@@ -178,6 +185,8 @@
           <span>%</span>
         </div>
       </div>
+
+      <!-- Health Cost -->
       <div class="income-input-group">
         <label for="in-health-raw">Monthly Health Cost</label>
         <div class="income-field-wrap">
@@ -189,25 +198,29 @@
           <button class="tier-btn" id="tier-spouse" type="button">Spouse</button>
           <button class="tier-btn" id="tier-family" type="button">Family</button>
         </div>
-        <div style="margin-top: 8px;">
-          <label class="checkbox-container" style="font-size: 11px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 4px;">
-            <input type="checkbox" id="in-has-hsa" />
-            Enrolled in HSA-Eligible HDHP Plan
-          </label>
+      </div>
+
+      <!-- Manual Monthly HSA Contribution -->
+      <div class="income-input-group">
+        <label for="in-hsa-monthly">Monthly HSA Contribution</label>
+        <div class="income-field-wrap">
+          <span>$</span>
+          <input type="text" id="in-hsa-monthly" class="mono-type" value="0" />
         </div>
+        <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; display: block;">
+          Max: $358.33/mo (Single) | $712.50/mo (Family)
+        </span>
       </div>
     </div>
 
+    <!-- Interactive 401(k) Split Slider Row -->
     <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px;">
-      <div class="income-input-group" style="max-width: 400px;">
-        <label for="in-strategy" style="margin-bottom: 6px; display: block; font-weight: 500;">401(k) Contribution Strategy</label>
-        <div class="income-field-wrap">
-          <select id="in-strategy" style="width: 100%; padding: 6px; background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border); id='in-strategy'">
-            <option value="optimize" selected>Smart Tax Optimizer (Algorithmic)</option>
-            <option value="traditional">100% Traditional (Pre-Tax)</option>
-            <option value="roth">100% Roth (Post-Tax)</option>
-          </select>
+      <div style="max-width: 400px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; font-weight: 500;">
+          <span style="color: var(--text-main);">Traditional: <span id="trad-split-label">50</span>%</span>
+          <span style="color: var(--text-main);">Roth: <span id="roth-split-label">50</span>%</span>
         </div>
+        <input type="range" id="in-401k-split" min="0" max="100" value="50" style="width: 100%; accent-color: var(--primary);" />
       </div>
     </div>
 

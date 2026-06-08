@@ -8,11 +8,10 @@ import { computeFederalTax } from '../config/tax-brackets-2026.js';
 export function computeTax(state) {
   const gross = state.grossIncome;
   const status = state.filingStatus === 'married' ? 'married' : 'single';
+  const householdIncome = gross + (status === 'married' ? (state.spouseIncome || 0) : 0);
 
   // 1. 401(k) limits
-  const max401kAllowed = state.spouseWorking && status === 'married'
-    ? MAX_401K_INDIVIDUAL * 2
-    : MAX_401K_INDIVIDUAL;
+  const max401kAllowed = MAX_401K_INDIVIDUAL;
 
   const maxHsaAllowed = status === 'married' ? HSA_LIMITS.married : HSA_LIMITS.single;
 
@@ -49,8 +48,8 @@ export function computeTax(state) {
   const annualFica = annualSocialSecurity + annualMedicare;
 
   // 9. State income tax — flat rate applied to gross (simplified; most states exempt retirement contributions)
-  const stateTaxRate = (state.stateTaxRate ?? 0) / 100;
-  const annualStateTax = gross * stateTaxRate;
+  const stateTaxRate=['FL','TX','TN','WA','NV'].includes(state.stateCode)?0:(state.stateTaxRate??0)/100;
+  const annualStateTax=householdIncome*stateTaxRate;
 
   // 10. Employer match: matchRate% on contributions up to matchCeiling% of salary
   const matchRate    = (state.employerMatchRate    ?? 100) / 100;

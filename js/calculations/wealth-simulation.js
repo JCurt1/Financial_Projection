@@ -4,6 +4,11 @@ import { computeFederalTax } from '../config/tax-brackets-2026.js';
 export function simulateWealth(state, deps) {
   const { tax, cashflow, debt, runway, fi } = deps;
   const { fiTargetNumber, annualYield } = fi;
+  const capitalGainsDrag =
+  (state.capitalGainsDrag ?? 10) / 100;
+
+const taxableYield =
+  annualYield * (1 - capitalGainsDrag);
 
   const currentSimulationAge = state.initialAge;
   const targetHorizonAge = state.targetHorizonAge || 65;
@@ -29,7 +34,7 @@ export function simulateWealth(state, deps) {
 
   // Taxable Brokerage — existing brokerage balance (market yield)
   let simBrokeragePool = state.brokerage;
-
+  let simHsaPool = state.hsaBalance || 0;
   // Cash Buffer — liquid savings/HYSA (low yield, capped target)
   // Seed with existing cash balance; target cap = cashBufferMonths x monthly expenses
   const cashBufferTarget = (state.cashBufferMonths ?? 3) * (state.monthlyExpenses || 0);
@@ -41,8 +46,25 @@ export function simulateWealth(state, deps) {
   const investmentRate = Math.min(1, Math.max(0, (state.investmentRate ?? 80) / 100));
 
   let simDebt = state.consumerDebt;
-  let currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool + simCashBuffer - simDebt;
+  let currentCompoundingNW =
+  simPreTaxPool +
+  simRothPool +
+  simBrokeragePool +
+  simHsaPool +
+  simCashBuffer -
+  simDebt;
+  
+  const retirementTaxFactor =
+  1 - ((state.retirementTaxRate ?? 15) / 100);
 
+  const spendableNetWorth =
+  (simPreTaxPool * retirementTaxFactor) +
+  simRothPool +
+  simBrokeragePool +
+  simHsaPool +
+  simCashBuffer -
+  simDebt;
+  
   let loopsTotal = targetHorizonAge - currentSimulationAge;
   if (loopsTotal <= 0) loopsTotal = 1;
 
@@ -80,13 +102,14 @@ export function simulateWealth(state, deps) {
       // Compound all pools at their respective yields
       simPreTaxPool    *= (1 + annualYield / 12);
       simRothPool      *= (1 + annualYield / 12);
-      simBrokeragePool *= (1 + annualYield / 12);
+      simBrokeragePool *= (1 + taxableYield / 12);
       simCashBuffer    *= (1 + CASH_BUFFER_YIELD / 12);  // Low-yield HYSA rate
 
       // Inject dedicated monthly streams into correct buckets
       simPreTaxPool += monthlyPreTaxInflow;
       simRothPool   += monthlyRothInflow;
-      simBrokeragePool += monthlyBrokerageHsaInflow;
+	  simHsaPool *= (1 + annualYield / 12);
+	  simHsaPool += monthlyBrokerageHsaInflow;
 
       // Waterfall phase tracking
       let waterfallActivePhase = 'debt';
@@ -174,10 +197,14 @@ export function simulateWealth(state, deps) {
       }
 
       const yearsRemainingTo65 = Math.max(COAST_FI_REFERENCE_AGE - activeTimelineAge, 0);
-      const coastFiRequiredThreshold = fiTargetNumber / Math.pow(1 + annualYield, yearsRemainingTo65);
-      if (!absoluteCoastAchievedAge && currentCompoundingNW >= coastFiRequiredThreshold) {
-        absoluteCoastAchievedAge = activeTimelineAge;
-      }
+      const coastFiRequiredThreshold =
+  fiTargetNumber /
+  Math.pow(1 + annualYield, yearsRemainingTo65);
+
+if (!absoluteCoastAchievedAge &&
+    spendableNetWorth >= coastFiRequiredThreshold) {
+  absoluteCoastAchievedAge = activeTimelineAge;
+}
     }
 
     labelsCollection.push('Age ' + activeTimelineAge);
@@ -259,7 +286,8 @@ export function simulateWealth(state, deps) {
 
     drawdownPreTaxBucket    *= (1 + DRAWDOWN_GROWTH_RATE);
     drawdownRothBucket      *= (1 + DRAWDOWN_GROWTH_RATE);
-    drawdownBrokerageBucket *= (1 + DRAWDOWN_GROWTH_RATE);
+    drawdownBrokerageBucket *=
+  (1 + (DRAWDOWN_GROWTH_RATE * (1 - capitalGainsDrag)));
     indexedAnnualSpendingRequirement *= (1 + DRAWDOWN_INFLATION_RATE);
 
     drawdownAge++;
@@ -297,7 +325,9 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
   const marketVolatility = 0.15;
   const initialAnnualSpending = state.monthlyExpenses * 12;
   const inflationRate = 0.025;
-  const effectiveTaxRate = preTaxRatioAtRetirement * 0.22;
+  const effectiveTaxRate =
+  preTaxRatioAtRetirement *
+  ((state.retirementTaxRate ?? 15) / 100);
   const estimatedTaxBrake = 1 + effectiveTaxRate;
 
   // Store full year-by-year paths for all runs: allPaths[year][run]

@@ -163,6 +163,7 @@
             <input type="checkbox" id="in-spouse-working" />
             Spouse works & contributes to a 401(k)
           </label>
+          <div class="income-field-wrap" style="margin-top:8px;"><span>$</span><input type="text" id="in-spouse-income" value="0" /></div>
         </div>
       </div>
 
@@ -217,7 +218,7 @@
       </div>
 
       <div class="income-input-group">
-        <label for="in-state-tax-rate">State Income Tax Rate</label>
+        <label for="in-state-code">State</label><div class="income-field-wrap"><select id="in-state-code"><option>FL</option><option>TX</option><option>TN</option><option>WA</option><option>NV</option><option>CA</option><option>NY</option></select></div><label for="in-state-tax-rate">State Income Tax Rate</label>
         <div class="income-field-wrap">
           <input type="text" id="in-state-tax-rate" class="mono-type" value="0" style="text-align: right; padding-right: 4px;" />
           <span>%</span>

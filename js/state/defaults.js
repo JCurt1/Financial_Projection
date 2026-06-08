@@ -17,14 +17,17 @@ export const DEFAULT_STATE = {
   initialAge: 31,
   targetHorizonAge: 65,
   spouseWorking: false,
-  hsaCostMonthly: 0, // Swapped from boolean to a clean starting dollar tracker
+  spouseIncome: 0,
+  hsaCostMonthly: 0,
+  hsaBalance: 0,
   
   // Decoupled tax allocation split defaults (Percentages)
   currentTradSplitPercent: 100, // Existing nest egg defaults to 100% Traditional pre-tax
   futureTradSplitPercent: 50,   // Future paychecks default to a balanced 50/50 split
 
   // State & payroll tax
-  stateTaxRate: 0,              // State income tax rate (%), default 0 — user sets their state
+  stateTaxRate: 0,
+  stateCode: 'FL',              // State income tax rate (%), default 0 — user sets their state
 
   // Cash drag / investment behavior
   investmentRate: 80,           // % of surplus actually deployed to brokerage (vs sits as cash)

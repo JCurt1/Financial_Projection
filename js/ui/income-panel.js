@@ -35,6 +35,7 @@ export function initIncomePanel() {
   bindSyncInput('in-state-tax-rate', 'stateTaxRate', true);
   bindSyncInput('in-investment-rate', 'investmentRate', true);
   bindSyncInput('in-cash-buffer-months', 'cashBufferMonths');
+  bindSyncInput('in-spouse-income', 'spouseIncome');
 
   // Filing status
   const statusSelect = document.getElementById('in-status');
@@ -123,3 +124,5 @@ export function initIncomePanel() {
   document.getElementById('tier-spouse').addEventListener('click', () => setHealthTier('spouse'));
   document.getElementById('tier-family').addEventListener('click', () => setHealthTier('family'));
 }
+
+const st=document.getElementById('in-state-code'); if(st){st.addEventListener('change',e=>setState({stateCode:e.target.value}));}

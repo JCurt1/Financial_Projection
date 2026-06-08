@@ -17,7 +17,7 @@ export function computeTax(state) {
   total401kDeferral = Math.min(total401kDeferral, max401kAllowed);
 
   // 3. Process the Custom Traditional vs. Roth Split Percentage
-  const tradRatio = (state.tradSplitPercent ?? 50) / 100;
+  const tradRatio = (state.futureTradSplitPercent ?? 50) / 100;
   const traditional401k = total401kDeferral * tradRatio;
   const roth401k = total401kDeferral - traditional401k;
 

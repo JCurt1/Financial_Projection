@@ -63,34 +63,9 @@ export function initProjector() {
     if (e.key === 'Enter') targetAgeTextInput.blur();
   });
 
-  // 4. Retirement Tax Rate Input Listeners
-  const retirementTaxInput = document.getElementById('txt-retirement-tax');
-  retirementTaxInput.addEventListener('blur', () => {
-    let val = parseFloat(retirementTaxInput.value);
-    if (isNaN(val) || val < 0) val = 0;
-    if (val > 50) val = 50;
-    setState({ retirementTaxRate: val });
-    retirementTaxInput.value = val.toFixed(0);
-  });
-  retirementTaxInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') retirementTaxInput.blur();
-  });
-
-  // 5. Capital Gains Drag Input Listeners
-  const capGainsDragInput = document.getElementById('txt-cap-gains-drag');
-  capGainsDragInput.addEventListener('blur', () => {
-    let val = parseFloat(capGainsDragInput.value);
-    if (isNaN(val) || val < 0) val = 0;
-    if (val > 40) val = 40;
-    setState({ capitalGainsDrag: val });
-    capGainsDragInput.value = val.toFixed(0);
-  });
-  capGainsDragInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') capGainsDragInput.blur();
-  });
 }
 
-export function renderProjector({ simulation }) {
+export function renderProjector({ simulation, derivedRetirementTaxRate, derivedCapGainsDrag }) {
   // Update Compounding Engine text strings dynamically
   document.getElementById('fv-target-label').textContent =
     `Projected Portfolio at Age ${simulation.targetHorizonAge}`;
@@ -106,4 +81,10 @@ export function renderProjector({ simulation }) {
     drawdownTitle.textContent = 
       `Age ${simulation.targetHorizonAge}–${endAge} Retirement Drawdown (5% Portfolio Growth · Actual Spending · 3% Inflation)`;
   }
+
+  // Update derived assumption read-only displays
+  const retTaxEl = document.getElementById('txt-retirement-tax');
+  const capGainsEl = document.getElementById('txt-cap-gains-drag');
+  if (retTaxEl && derivedRetirementTaxRate != null) retTaxEl.value = derivedRetirementTaxRate.toFixed(1);
+  if (capGainsEl && derivedCapGainsDrag != null) capGainsEl.value = derivedCapGainsDrag.toFixed(1);
 }

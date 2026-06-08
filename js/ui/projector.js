@@ -78,6 +78,6 @@ export function renderProjector({ simulation }) {
     // Keeps the custom standard 30-year span cleanly labeled in the UI header
     const endAge = Number(simulation.targetHorizonAge) + 30; 
     drawdownTitle.textContent = 
-      `Age ${simulation.targetHorizonAge}-${endAge} Retirement Drawdown Timeline (5% Growth, 4% Initial Rule + 3% Inflation)`;
+      `Age ${simulation.targetHorizonAge}–${endAge} Retirement Drawdown (5% Portfolio Growth · Actual Spending · 3% Inflation)`;
   }
 }

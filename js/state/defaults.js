@@ -29,6 +29,13 @@ export const DEFAULT_STATE = {
   stateTaxRate: 0,
   stateCode: 'FL',              // State income tax rate (%), default 0 — user sets their state
 
+
+  // Retirement tax & investment drag assumptions
+  // These are used in projections and Monte Carlo but not yet exposed in the UI.
+  // retirementTaxRate: effective tax rate applied to traditional 401k/IRA withdrawals in retirement (%)
+  // capitalGainsDrag: fraction of brokerage yield lost to taxes/fees annually (%)
+  retirementTaxRate: 15,
+  capitalGainsDrag: 10,
   // Cash drag / investment behavior
   investmentRate: 80,           // % of surplus actually deployed to brokerage (vs sits as cash)
   cashBufferMonths: 3,          // Target cash buffer size in months of expenses before investing

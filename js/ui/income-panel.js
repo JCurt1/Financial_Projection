@@ -71,6 +71,10 @@ export function initIncomePanel() {
   // State income tax rate
   bindSyncInput('in-state-tax-rate', 'stateTaxRate', true);
 
+  // Cash drag controls
+  bindSyncInput('in-investment-rate', 'investmentRate', true);
+  bindSyncInput('in-cash-buffer-months', 'cashBufferMonths');
+
 
 
   const statusSelect = document.getElementById('in-status');

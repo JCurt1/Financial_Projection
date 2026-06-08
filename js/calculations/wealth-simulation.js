@@ -6,8 +6,8 @@ export function simulateWealth(state, deps) {
   const { fiTargetNumber, annualYield } = fi;
 
   const currentSimulationAge = state.initialAge;
-  const targetHorizonAge = state.targetHorizonAge || 60; 
-  
+  const targetHorizonAge = state.targetHorizonAge || 65;
+
   const monthlyDebtApr = debt.monthlyDebtApr;
   const calculatedSavingsMargin = cashflow.savingsMargin;
   const monthsToDebtFree = debt.monthsToDebtFree;
@@ -18,16 +18,20 @@ export function simulateWealth(state, deps) {
   const labelsCollection = [];
   const trajectoryCollection = [];
 
-  // --- 1. INITIALIZE TAX-SEGREGATED PORTFOLIOS ---
-  // Decoupled: One ratio for your history, one ratio for your future
+  // --- 1. INITIALIZE THREE TAX-SEGREGATED POOLS ---
   const currentTradRatio = (state.currentTradSplitPercent ?? 100) / 100;
-  const futureTradRatio = (state.futureTradSplitPercent ?? 50) / 100;
-  
-  // Split starting balances accurately based on past tax layout
+
+  // Pre-Tax (Traditional 401k / IRA)
   let simPreTaxPool = state.retirement * currentTradRatio;
-  let simPostTaxPool = state.brokerage + state.cash + (state.retirement * (1 - currentTradRatio));
+
+  // Roth (Roth 401k / Roth IRA) — Roth portion of existing retirement balance
+  let simRothPool = state.retirement * (1 - currentTradRatio);
+
+  // Taxable Brokerage — existing brokerage + cash savings
+  let simBrokeragePool = state.brokerage + state.cash;
+
   let simDebt = state.consumerDebt;
-  let currentCompoundingNW = simPreTaxPool + simPostTaxPool - simDebt;
+  let currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool - simDebt;
 
   let loopsTotal = targetHorizonAge - currentSimulationAge;
   if (loopsTotal <= 0) loopsTotal = 1;
@@ -35,39 +39,42 @@ export function simulateWealth(state, deps) {
   labelsCollection.push('Age ' + currentSimulationAge);
   trajectoryCollection.push(currentCompoundingNW);
 
-  // --- 2. EXTRACT TRACKED INFLOWS FROM YOUR TAX ENGINE ---
-  // Isolate standard employer matching percent logic
+  // --- 2. MONTHLY INFLOW ROUTING ---
   const employerMatchPercent = Math.min(state.deferral401k, state.employerMatch || 0);
   const annualEmployerMatchDollars = state.grossIncome * (employerMatchPercent / 100);
-  
-  // New Pre-Tax Monthly Inflow: Traditional 401(k) + Company match dollars
+
+  // Pre-Tax: Traditional 401(k) employee contributions + employer match
   const monthlyPreTaxInflow = (tax.traditional401k + annualEmployerMatchDollars) / 12;
 
-  // New Post-Tax Monthly Inflow: Roth 401(k) + monthly HSA contributions
-  const monthlyPostTaxInflow = (tax.roth401k + tax.traditionalHsa) / 12;
+  // Roth: Roth 401(k) contributions only (HSA goes to brokerage — it's triple-tax-advantaged
+  // but functionally liquid, so we keep it separate from locked Roth)
+  const monthlyRothInflow = tax.roth401k / 12;
+
+  // Brokerage: HSA contributions (liquid, tax-advantaged spending account)
+  const monthlyBrokerageHsaInflow = tax.traditionalHsa / 12;
 
   let simulationMonthsOffset = 0;
   let absoluteFiAchievedAge = null;
   let absoluteCoastAchievedAge = null;
 
-  // --- PHASE 1: ACCUMULATION ACCUMULATOR LOOP ---
+  // --- PHASE 1: ACCUMULATION LOOP ---
   for (let currentYearIndex = 1; currentYearIndex <= loopsTotal; currentYearIndex++) {
     const activeTimelineAge = currentSimulationAge + currentYearIndex;
 
     for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
       simulationMonthsOffset++;
 
-      // Compound market interest growth to both standalone asset structures
-      simPreTaxPool *= (1 + annualYield / 12);
-      simPostTaxPool *= (1 + annualYield / 12);
+      // Compound all three pools at the same market yield
+      simPreTaxPool    *= (1 + annualYield / 12);
+      simRothPool      *= (1 + annualYield / 12);
+      simBrokeragePool *= (1 + annualYield / 12);
 
-      // Inject continuous tax-advantaged pre-tax streams
-      simPreTaxPool += monthlyPreTaxInflow;
-      
-      // Inject fixed post-tax savings accounts target allocations
-      simPostTaxPool += monthlyPostTaxInflow;
+      // Inject dedicated monthly streams into correct buckets
+      simPreTaxPool    += monthlyPreTaxInflow;
+      simRothPool      += monthlyRothInflow;
+      simBrokeragePool += monthlyBrokerageHsaInflow;
 
-      // Waterfall tracking mechanics for free household cash flow surplus
+      // Waterfall phase tracking
       let waterfallActivePhase = 'debt';
       if (simDebt <= 0 || (debtCanBePaidOff && simulationMonthsOffset > monthsToDebtFree)) {
         waterfallActivePhase = 'runway';
@@ -77,26 +84,40 @@ export function simulateWealth(state, deps) {
         waterfallActivePhase = 'investing';
       }
 
-      // Route leftover monthly net savings cash margin after 401k/HSA/Health adjustments
+      // Route savings margin / deficit through waterfall
       if (simDebt > 0 && calculatedSavingsMargin > 0) {
+        // Paying down debt — overflow goes to brokerage
         const debtInterest = simDebt * monthlyDebtApr;
         simDebt += debtInterest - calculatedSavingsMargin;
         if (simDebt < 0) {
-          simPostTaxPool += Math.abs(simDebt);
+          simBrokeragePool += Math.abs(simDebt);
           simDebt = 0;
         }
       } else if (simDebt <= 0 && calculatedSavingsMargin > 0) {
-        simPostTaxPool += calculatedSavingsMargin; // Leftover take-home compounds in taxable/post-tax pool
+        // Debt-free — take-home surplus goes to taxable brokerage
+        simBrokeragePool += calculatedSavingsMargin;
       } else if (calculatedSavingsMargin < 0) {
-        // Safe liquid cash cushion asset reduction sequence if running a budget deficit
+        // Budget deficit — draw from brokerage first, then Roth, then pre-tax (last resort)
         let remainingDeficit = calculatedSavingsMargin;
-        simPostTaxPool += remainingDeficit;
-        if (simPostTaxPool < 0) {
-          remainingDeficit = simPostTaxPool;
-          simPostTaxPool = 0;
+
+        simBrokeragePool += remainingDeficit;
+        if (simBrokeragePool < 0) {
+          remainingDeficit = simBrokeragePool;
+          simBrokeragePool = 0;
         } else {
           remainingDeficit = 0;
         }
+
+        if (remainingDeficit < 0) {
+          simRothPool += remainingDeficit;
+          if (simRothPool < 0) {
+            remainingDeficit = simRothPool;
+            simRothPool = 0;
+          } else {
+            remainingDeficit = 0;
+          }
+        }
+
         if (remainingDeficit < 0) {
           simPreTaxPool += remainingDeficit;
           if (simPreTaxPool < 0) simPreTaxPool = 0;
@@ -107,7 +128,7 @@ export function simulateWealth(state, deps) {
         simDebt += (simDebt * monthlyDebtApr);
       }
 
-      currentCompoundingNW = simPreTaxPool + simPostTaxPool - simDebt;
+      currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool - simDebt;
 
       if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {
         absoluteFiAchievedAge = activeTimelineAge;
@@ -127,60 +148,74 @@ export function simulateWealth(state, deps) {
   const terminalNetWorthResult = trajectoryCollection[trajectoryCollection.length - 1];
   const compoundingGrowthGain = terminalNetWorthResult - (state.retirement + state.brokerage + state.cash);
 
-  // --- PHASE 2: RETIREMENT DRAWDOWN CHRONOLOGY ENGINE ---
+  // --- PHASE 2: RETIREMENT DRAWDOWN ---
   let drawdownAge = targetHorizonAge;
-  let drawdownPreTaxBucket = simPreTaxPool;
-  let drawdownPostTaxBucket = simPostTaxPool;
-  
-  // Set starting annual expense target based on real-world consumption needs
+  let drawdownPreTaxBucket   = simPreTaxPool;
+  let drawdownRothBucket     = simRothPool;
+  let drawdownBrokerageBucket = simBrokeragePool;
+
   let indexedAnnualSpendingRequirement = state.monthlyExpenses * 12;
   const drawdownTimelineData = [];
 
   while (drawdownAge <= DRAWDOWN_END_AGE) {
-    const combinedRetirementAssets = drawdownPreTaxBucket + drawdownPostTaxBucket;
+    const combinedAssets = drawdownPreTaxBucket + drawdownRothBucket + drawdownBrokerageBucket;
 
-    if (combinedRetirementAssets <= 0) {
-      drawdownTimelineData.push({ age: drawdownAge, totalWealth: 0, preTax: 0, postTax: 0 });
+    if (combinedAssets <= 0) {
+      drawdownTimelineData.push({ age: drawdownAge, totalWealth: 0, preTax: 0, roth: 0, brokerage: 0 });
       drawdownAge++;
       continue;
     }
 
-    // Pro-rata drawdown allocation strategy based on current portfolio composition matrix
-    const preTaxRatio = drawdownPreTaxBucket / combinedRetirementAssets;
-    let baselinePreTaxPull = indexedAnnualSpendingRequirement * preTaxRatio;
-    let baselinePostTaxPull = indexedAnnualSpendingRequirement * (1 - preTaxRatio);
+    // Pro-rata draw from each bucket based on its share of total portfolio
+    const preTaxShare    = drawdownPreTaxBucket / combinedAssets;
+    const rothShare      = drawdownRothBucket / combinedAssets;
+    const brokerageShare = drawdownBrokerageBucket / combinedAssets;
 
-    // DYNAMIC TAX ASSESSMENT ON PRE-TAX WITHDRAWALS
-    const taxHitOnPreTaxWithdrawal = computeFederalTax(baselinePreTaxPull, state.filingStatus);
-    
-    let netPreTaxDeduction = baselinePreTaxPull + taxHitOnPreTaxWithdrawal;
-    let netPostTaxDeduction = baselinePostTaxPull;
+    let preTaxPull    = indexedAnnualSpendingRequirement * preTaxShare;
+    let rothPull      = indexedAnnualSpendingRequirement * rothShare;
+    let brokeragePull = indexedAnnualSpendingRequirement * brokerageShare;
 
-    // Safety fallback bounds overrides if a specific bucket runs out of money early
+    // Tax gross-up on pre-tax withdrawals only — Roth and brokerage are tax-free at withdrawal
+    const taxOnPreTax = computeFederalTax(preTaxPull, state.filingStatus);
+    let netPreTaxDeduction    = preTaxPull + taxOnPreTax;
+    let netRothDeduction      = rothPull;
+    let netBrokerageDeduction = brokeragePull;
+
+    // Safety fallbacks if any bucket runs dry
     if (drawdownPreTaxBucket < netPreTaxDeduction) {
-      const remainderDeficit = netPreTaxDeduction - drawdownPreTaxBucket;
+      const overflow = netPreTaxDeduction - drawdownPreTaxBucket;
       netPreTaxDeduction = drawdownPreTaxBucket;
-      netPostTaxDeduction += remainderDeficit; // Tax-free bucket shoulders the rest
-    } else if (drawdownPostTaxBucket < netPostTaxDeduction) {
-      const remainderDeficit = netPostTaxDeduction - drawdownPostTaxBucket;
-      netPostTaxDeduction = drawdownPostTaxBucket;
-      netPreTaxDeduction += remainderDeficit;
+      // Overflow splits pro-rata between Roth and brokerage
+      const rothOverflow = overflow * (drawdownRothBucket / (drawdownRothBucket + drawdownBrokerageBucket + 0.01));
+      netRothDeduction      += rothOverflow;
+      netBrokerageDeduction += overflow - rothOverflow;
+    }
+    if (drawdownRothBucket < netRothDeduction) {
+      const overflow = netRothDeduction - drawdownRothBucket;
+      netRothDeduction = drawdownRothBucket;
+      netBrokerageDeduction += overflow;
+    }
+    if (drawdownBrokerageBucket < netBrokerageDeduction) {
+      const overflow = netBrokerageDeduction - drawdownBrokerageBucket;
+      netBrokerageDeduction = drawdownBrokerageBucket;
+      netPreTaxDeduction += overflow;
     }
 
-    // Subtract distributions
-    drawdownPreTaxBucket = Math.max(0, drawdownPreTaxBucket - netPreTaxDeduction);
-    drawdownPostTaxBucket = Math.max(0, drawdownPostTaxBucket - netPostTaxDeduction);
+    drawdownPreTaxBucket    = Math.max(0, drawdownPreTaxBucket    - netPreTaxDeduction);
+    drawdownRothBucket      = Math.max(0, drawdownRothBucket      - netRothDeduction);
+    drawdownBrokerageBucket = Math.max(0, drawdownBrokerageBucket - netBrokerageDeduction);
 
     drawdownTimelineData.push({
-      age: drawdownAge,
-      totalWealth: drawdownPreTaxBucket + drawdownPostTaxBucket,
-      preTax: drawdownPreTaxBucket,
-      postTax: drawdownPostTaxBucket
+      age:        drawdownAge,
+      totalWealth: drawdownPreTaxBucket + drawdownRothBucket + drawdownBrokerageBucket,
+      preTax:     drawdownPreTaxBucket,
+      roth:       drawdownRothBucket,
+      brokerage:  drawdownBrokerageBucket,
     });
 
-    // Compound remaining assets at fixed retirement-phase yields and index living expenses for inflation
-    drawdownPreTaxBucket *= (1 + DRAWDOWN_GROWTH_RATE);
-    drawdownPostTaxBucket *= (1 + DRAWDOWN_GROWTH_RATE);
+    drawdownPreTaxBucket    *= (1 + DRAWDOWN_GROWTH_RATE);
+    drawdownRothBucket      *= (1 + DRAWDOWN_GROWTH_RATE);
+    drawdownBrokerageBucket *= (1 + DRAWDOWN_GROWTH_RATE);
     indexedAnnualSpendingRequirement *= (1 + DRAWDOWN_INFLATION_RATE);
 
     drawdownAge++;
@@ -194,91 +229,74 @@ export function simulateWealth(state, deps) {
     absoluteFiAchievedAge,
     absoluteCoastAchievedAge,
     targetHorizonAge,
-    
-    // EXPORT RETIREMENT TIMELINE METRICS FOR CHARTING
-    drawdownTimelineData, 
+    drawdownTimelineData,
   };
 }
 
 // --- BOX-MULLER GAUSSIAN RANDOMIZER ---
-// Transforms uniform random variables into a normal distribution bell curve
 function generateGaussianRandom(mean, standardDeviation) {
   let u = 0, v = 0;
-  while(u === 0) u = Math.random(); // Converting [0,1) to (0,1)
+  while(u === 0) u = Math.random();
   while(v === 0) v = Math.random();
-  
-  // Standard Box-Muller transform equation
   const standardNormal = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-  
-  // Scale and shift by your asset configuration parameters
   return mean + standardNormal * standardDeviation;
 }
 
 // --- CORE MONTE CARLO STRESS TEST ENGINE ---
 export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRatioAtRetirement = 0.5) {
-  const iterations = 1000; // 1,000 runs gives excellent precision without slowing down the UI
-  const currentAge = state.targetHorizonAge || 60; // Simulation begins exactly when retirement starts
-  const endAge = 90; 
+  const iterations = 1000;
+  const currentAge = state.targetHorizonAge || 65;
+  const endAge = 90;
   const totalYears = endAge - currentAge;
-  
-  const expectedMeanReturn = (state.marketYield / 100); 
-  const marketVolatility = 0.15; // Standard historical S&P 500 volatility baseline (15%)
+
+  const expectedMeanReturn = (state.marketYield / 100);
+  const marketVolatility = 0.15;
   let indexedAnnualSpending = state.monthlyExpenses * 12;
-  const inflationRate = 0.025; // 2.5% structural cost matching your drawdown matrix
+  const inflationRate = 0.025;
 
   const terminalBalancesCollection = [];
 
-  // Run 1,000 independent lifespans
   for (let simRun = 0; simRun < iterations; simRun++) {
     let currentRunBalance = terminalAccumulatedNW;
     let runSpendingTarget = indexedAnnualSpending;
     let isDepleted = false;
 
     for (let year = 0; year < totalYears; year++) {
-      // 1. Generate a completely unique, randomized market return for this specific year
       const randomizedAnnualYield = generateGaussianRandom(expectedMeanReturn, marketVolatility);
-      
-      // Dynamic tax drag: pre-tax withdrawals taxed at ~22% effective, Roth withdrawals tax-free
-      // Blended rate scales with how much of the portfolio is in traditional vs Roth
+
+      // Blended tax drag: only pre-tax portion incurs withdrawal tax (~22% effective rate)
       const effectiveTaxRate = preTaxRatioAtRetirement * 0.22;
       const estimatedTaxBrake = 1 + effectiveTaxRate;
       const totalYearlyOutflow = runSpendingTarget * estimatedTaxBrake;
 
-      // 3. Execute the cash drawdown mechanics
       currentRunBalance = currentRunBalance - totalYearlyOutflow;
 
       if (currentRunBalance <= 0) {
         currentRunBalance = 0;
         isDepleted = true;
-        break; 
+        break;
       }
 
-      // 4. Compound the remaining nest egg by the randomized yield factor
       currentRunBalance *= (1 + randomizedAnnualYield);
-      
-      // 5. Adjust spending target upward for structural inflation
       runSpendingTarget *= (1 + inflationRate);
     }
 
     terminalBalancesCollection.push(currentRunBalance);
   }
 
-  // --- CALCULATION OF PERCENTILE CHANNELS ---
-  // Sort from absolute broke ($0) to hyper-growth millions
   terminalBalancesCollection.sort((a, b) => a - b);
 
   const totalSuccesses = terminalBalancesCollection.filter(balance => balance > 0).length;
   const probabilityOfSuccess = (totalSuccesses / iterations) * 100;
 
-  // Extract critical statistical threshold markers
   const p10Index = Math.floor(iterations * 0.10);
-  const p50Index = Math.floor(iterations * 0.50); // Median simulation path
+  const p50Index = Math.floor(iterations * 0.50);
   const p90Index = Math.floor(iterations * 0.90);
 
   return {
     probabilityOfSuccess: Math.round(probabilityOfSuccess),
     p10Baseline: terminalBalancesCollection[p10Index],
     p50Baseline: terminalBalancesCollection[p50Index],
-    p90Baseline: terminalBalancesCollection[p90Index]
+    p90Baseline: terminalBalancesCollection[p90Index],
   };
 }

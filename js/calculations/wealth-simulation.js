@@ -50,8 +50,11 @@ export function simulateWealth(state, deps) {
   trajectoryCollection.push(currentCompoundingNW);
 
   // --- 2. MONTHLY INFLOW ROUTING ---
-  const employerMatchPercent = Math.min(state.deferral401k, state.employerMatch || 0);
-  const annualEmployerMatchDollars = state.grossIncome * (employerMatchPercent / 100);
+  // Employer match: matchRate% on contributions up to matchCeiling% of salary
+  const matchRate    = (state.employerMatchRate    ?? 100) / 100;
+  const matchCeiling = (state.employerMatchCeiling ?? 4)   / 100;
+  const effectiveDeferralForMatch = Math.min(state.deferral401k / 100, matchCeiling);
+  const annualEmployerMatchDollars = state.grossIncome * effectiveDeferralForMatch * matchRate;
 
   // Pre-Tax: Traditional 401(k) employee contributions + employer match
   const monthlyPreTaxInflow = (tax.traditional401k + annualEmployerMatchDollars) / 12;

@@ -58,7 +58,8 @@ export function initIncomePanel() {
 
   bindSyncInput('in-401k-pct', 'deferral401k', true);
 
-  bindSyncInput('in-match-pct', 'employerMatch', true);
+  bindSyncInput('in-match-rate', 'employerMatchRate', true);
+  bindSyncInput('in-match-ceiling', 'employerMatchCeiling', true);
 
   bindSyncInput('in-health-raw', 'healthCostMonthly');
 

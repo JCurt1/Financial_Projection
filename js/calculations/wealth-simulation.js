@@ -28,10 +28,11 @@ export function simulateWealth(state, deps) {
   let simRothPool = state.retirement * (1 - currentTradRatio);
 
   // Taxable Brokerage — existing brokerage + cash savings
-  let simBrokeragePool = state.brokerage + state.cash;
+  let simBrokeragePool = state.brokerage;
+  let simCashPool = state.cash;
 
   let simDebt = state.consumerDebt;
-  let currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool - simDebt;
+  let currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool + simCashPool - simDebt;
 
   let loopsTotal = targetHorizonAge - currentSimulationAge;
   if (loopsTotal <= 0) loopsTotal = 1;
@@ -41,7 +42,7 @@ export function simulateWealth(state, deps) {
 
   // --- 2. MONTHLY INFLOW ROUTING ---
   const employerMatchPercent = Math.min(state.deferral401k, state.employerMatch || 0);
-  const annualEmployerMatchDollars = state.grossIncome * (employerMatchPercent / 100);
+  const annualEmployerMatchDollars = state.grossIncome * (employerMatchPercent / 100) * ((state.employerMatchRate ?? 100)/100);
 
   // Pre-Tax: Traditional 401(k) employee contributions + employer match
   const monthlyPreTaxInflow = (tax.traditional401k + annualEmployerMatchDollars) / 12;
@@ -67,7 +68,8 @@ export function simulateWealth(state, deps) {
       // Compound all three pools at the same market yield
       simPreTaxPool    *= (1 + annualYield / 12);
       simRothPool      *= (1 + annualYield / 12);
-      simBrokeragePool *= (1 + annualYield / 12);
+      simBrokeragePool *= (1 + Math.max(annualYield - 0.003,0) / 12);
+      simCashPool *= (1 + ((state.cashYield || 4)/100) / 12);
 
       // Inject dedicated monthly streams into correct buckets
       simPreTaxPool    += monthlyPreTaxInflow;
@@ -128,7 +130,7 @@ export function simulateWealth(state, deps) {
         simDebt += (simDebt * monthlyDebtApr);
       }
 
-      currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool - simDebt;
+      currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool + simCashPool - simDebt;
 
       if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {
         absoluteFiAchievedAge = activeTimelineAge;

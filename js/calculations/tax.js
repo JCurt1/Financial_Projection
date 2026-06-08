@@ -30,13 +30,18 @@ export function computeTax(state) {
   let taxableIncome = gross - traditional401k - traditionalHsa - preTaxHealth - STANDARD_DEDUCTION[status];
   if (taxableIncome < 0) taxableIncome = 0;
 
-  // 6. Compute Progressive Federal Taxes
+  // 6. Compute Federal + FICA + optional state tax
   const annualTax = computeFederalTax(taxableIncome, status);
-  const monthlyTax = annualTax / 12;
+  const ssWageBase = 176100;
+  const socialSecurity = Math.min(gross, ssWageBase) * 0.062;
+  const medicare = gross * 0.0145;
+  const additionalMedicare = Math.max(0, gross - (status === 'married' ? 250000 : 200000)) * 0.009;
+  const stateIncomeTax = taxableIncome * ((state.stateTaxRate || 0) / 100);
+  const monthlyTax = (annualTax + socialSecurity + medicare + additionalMedicare + stateIncomeTax) / 12;
   
   // 7. Fix Employer Matching Logic
-  const effectiveMatchPercent = Math.min(state.deferral401k, state.employerMatch || 0);
-  const annualEmployerMatchDollars = gross * (effectiveMatchPercent / 100);
+  const matchCap = Math.min(state.deferral401k, state.employerMatch || 0);
+  const annualEmployerMatchDollars = gross * (matchCap / 100) * ((state.employerMatchRate ?? 100) / 100);
 
   // 8. Calculate Monthly Net Takehome Cash Flow
   const monthlyGross = gross / 12;

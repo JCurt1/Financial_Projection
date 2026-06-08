@@ -205,6 +205,17 @@
           Max: $358.33/mo (Single) | $712.50/mo (Family)
         </span>
       </div>
+
+      <div class="income-input-group">
+        <label for="in-state-tax-rate">State Income Tax Rate</label>
+        <div class="income-field-wrap">
+          <input type="text" id="in-state-tax-rate" class="mono-type" value="0" style="text-align: right; padding-right: 4px;" />
+          <span>%</span>
+        </div>
+        <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; display: block;">
+          Enter your state's flat or effective rate (0 if none)
+        </span>
+      </div>
     </div>
 
     <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px;">
@@ -261,8 +272,9 @@
 
     <div class="income-grid" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
       <div class="cashflow-summary" style="border-left-color: var(--blue);">
-        <span class="cf-label">Est. Avg Monthly Tax</span>
+        <span class="cf-label">Est. Total Monthly Tax</span>
         <span class="cf-val" style="color: var(--blue);" id="cf-tax-withheld">$0/mo</span>
+        <span id="cf-tax-breakdown" style="font-size: 10px; color: var(--text-secondary); margin-top: 2px; display: block;"></span>
       </div>
       <div class="cashflow-summary" style="border-left-color: var(--purple);">
         <span class="cf-label">Base Take-Home Pay</span>

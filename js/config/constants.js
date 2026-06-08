@@ -7,6 +7,16 @@ export const HSA_LIMITS = {
   married: 8550, // Standard family/household tier limit
 };
 
+// FICA / Payroll Tax Constants (2026)
+export const SOCIAL_SECURITY_RATE = 0.062;         // 6.2% employee share
+export const SOCIAL_SECURITY_WAGE_BASE = 176100;   // SS wage base cap
+export const MEDICARE_RATE = 0.0145;               // 1.45% uncapped
+export const ADDITIONAL_MEDICARE_RATE = 0.009;     // 0.9% above threshold
+export const ADDITIONAL_MEDICARE_THRESHOLD = {
+  single: 200000,
+  married: 250000,
+};
+
 export const FI_MULTIPLIER = 25;
 export const DEFAULT_TARGET_HORIZON_AGE = 65; 
 export const COAST_FI_REFERENCE_AGE = 65;

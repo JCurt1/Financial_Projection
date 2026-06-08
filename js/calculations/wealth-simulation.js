@@ -215,7 +215,7 @@ function generateGaussianRandom(mean, standardDeviation) {
 }
 
 // --- CORE MONTE CARLO STRESS TEST ENGINE ---
-export function runMonteCarloSimulation(state, terminalAccumulatedNW) {
+export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRatioAtRetirement = 0.5) {
   const iterations = 1000; // 1,000 runs gives excellent precision without slowing down the UI
   const currentAge = state.targetHorizonAge || 60; // Simulation begins exactly when retirement starts
   const endAge = 90; 
@@ -238,10 +238,10 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW) {
       // 1. Generate a completely unique, randomized market return for this specific year
       const randomizedAnnualYield = generateGaussianRandom(expectedMeanReturn, marketVolatility);
       
-      // 2. Account for your dynamic tax barrier drag
-      // We safely approximate a 15% effective blended tax rate hit on pre-tax withdrawals 
-      // during chaotic sequences to keep computations lightning fast
-      const estimatedTaxBrake = 1.15; 
+      // Dynamic tax drag: pre-tax withdrawals taxed at ~22% effective, Roth withdrawals tax-free
+      // Blended rate scales with how much of the portfolio is in traditional vs Roth
+      const effectiveTaxRate = preTaxRatioAtRetirement * 0.22;
+      const estimatedTaxBrake = 1 + effectiveTaxRate;
       const totalYearlyOutflow = runSpendingTarget * estimatedTaxBrake;
 
       // 3. Execute the cash drawdown mechanics

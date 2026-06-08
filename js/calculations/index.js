@@ -27,8 +27,12 @@ export function computeAll(state) {
   const simulation = simulateWealth(state, { tax, cashflow, debt, runway, fi });
   
   // 2. RUN THE MONTE CARLO RISK ENGINE AT THE RECALCULATION STEP
-  // Pipeline the terminal net worth calculated at retirement directly into our stress tester
-  const monteCarlo = runMonteCarloSimulation(state, simulation.terminalNW);
+  // Compute the actual pre-tax ratio at retirement so Monte Carlo tax drag is accurate
+  const terminalTotal = simulation.drawdownTimelineData?.[0];
+  const preTaxRatioAtRetirement = terminalTotal && (terminalTotal.preTax + terminalTotal.postTax) > 0
+    ? terminalTotal.preTax / (terminalTotal.preTax + terminalTotal.postTax)
+    : 0.5;
+  const monteCarlo = runMonteCarloSimulation(state, simulation.terminalNW, preTaxRatioAtRetirement);
   
   // 3. Keep your existing legacy standalone drawdown simulator intact if needed
   const drawdown = simulateDrawdown(simulation.terminalNW, targetAge);

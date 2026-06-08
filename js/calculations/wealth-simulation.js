@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 
 export function simulateWealth(state, deps) {
@@ -18,7 +18,7 @@ export function simulateWealth(state, deps) {
   const labelsCollection = [];
   const trajectoryCollection = [];
 
-  // --- 1. INITIALIZE THREE TAX-SEGREGATED POOLS ---
+  // --- 1. INITIALIZE THREE TAX-SEGREGATED POOLS + CASH BUFFER ---
   const currentTradRatio = (state.currentTradSplitPercent ?? 100) / 100;
 
   // Pre-Tax (Traditional 401k / IRA)
@@ -27,11 +27,21 @@ export function simulateWealth(state, deps) {
   // Roth (Roth 401k / Roth IRA) — Roth portion of existing retirement balance
   let simRothPool = state.retirement * (1 - currentTradRatio);
 
-  // Taxable Brokerage — existing brokerage + cash savings
-  let simBrokeragePool = state.brokerage + state.cash;
+  // Taxable Brokerage — existing brokerage balance (market yield)
+  let simBrokeragePool = state.brokerage;
+
+  // Cash Buffer — liquid savings/HYSA (low yield, capped target)
+  // Seed with existing cash balance; target cap = cashBufferMonths x monthly expenses
+  const cashBufferTarget = (state.cashBufferMonths ?? 3) * (state.monthlyExpenses || 0);
+  let simCashBuffer = Math.min(state.cash, cashBufferTarget);
+  // Any cash above the buffer target starts in brokerage
+  simBrokeragePool += Math.max(0, state.cash - cashBufferTarget);
+
+  // Investment rate: fraction of surplus actually deployed to market (vs lost to lifestyle/irregular spend)
+  const investmentRate = Math.min(1, Math.max(0, (state.investmentRate ?? 80) / 100));
 
   let simDebt = state.consumerDebt;
-  let currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool - simDebt;
+  let currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool + simCashBuffer - simDebt;
 
   let loopsTotal = targetHorizonAge - currentSimulationAge;
   if (loopsTotal <= 0) loopsTotal = 1;
@@ -64,14 +74,15 @@ export function simulateWealth(state, deps) {
     for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
       simulationMonthsOffset++;
 
-      // Compound all three pools at the same market yield
+      // Compound all pools at their respective yields
       simPreTaxPool    *= (1 + annualYield / 12);
       simRothPool      *= (1 + annualYield / 12);
       simBrokeragePool *= (1 + annualYield / 12);
+      simCashBuffer    *= (1 + CASH_BUFFER_YIELD / 12);  // Low-yield HYSA rate
 
       // Inject dedicated monthly streams into correct buckets
-      simPreTaxPool    += monthlyPreTaxInflow;
-      simRothPool      += monthlyRothInflow;
+      simPreTaxPool += monthlyPreTaxInflow;
+      simRothPool   += monthlyRothInflow;
       simBrokeragePool += monthlyBrokerageHsaInflow;
 
       // Waterfall phase tracking
@@ -84,28 +95,53 @@ export function simulateWealth(state, deps) {
         waterfallActivePhase = 'investing';
       }
 
-      // Route savings margin / deficit through waterfall
+      // Route savings margin / deficit through tiered waterfall
       if (simDebt > 0 && calculatedSavingsMargin > 0) {
-        // Paying down debt — overflow goes to brokerage
+        // Phase 1: Paying down debt — overflow goes to cash buffer first
         const debtInterest = simDebt * monthlyDebtApr;
         simDebt += debtInterest - calculatedSavingsMargin;
         if (simDebt < 0) {
-          simBrokeragePool += Math.abs(simDebt);
+          simCashBuffer += Math.abs(simDebt);
           simDebt = 0;
         }
       } else if (simDebt <= 0 && calculatedSavingsMargin > 0) {
-        // Debt-free — take-home surplus goes to taxable brokerage
-        simBrokeragePool += calculatedSavingsMargin;
+        // Phase 2: Debt-free — fill cash buffer to target first, then invest remainder
+        const cashBufferHeadroom = Math.max(0, cashBufferTarget - simCashBuffer);
+
+        if (cashBufferHeadroom > 0) {
+          // Still building the cash buffer — fill it up first
+          const toBuffer = Math.min(calculatedSavingsMargin, cashBufferHeadroom);
+          simCashBuffer += toBuffer;
+          const remainder = calculatedSavingsMargin - toBuffer;
+          // Any leftover after filling buffer: apply investment rate
+          if (remainder > 0) {
+            simBrokeragePool += remainder * investmentRate;
+            // The uninvested fraction (lifestyle creep / irregular spend) is simply not added
+          }
+        } else {
+          // Buffer is full — apply investment rate to full surplus
+          simBrokeragePool += calculatedSavingsMargin * investmentRate;
+        }
       } else if (calculatedSavingsMargin < 0) {
-        // Budget deficit — draw from brokerage first, then Roth, then pre-tax (last resort)
+        // Budget deficit — draw from cash buffer first, then brokerage, then Roth, then pre-tax
         let remainingDeficit = calculatedSavingsMargin;
 
-        simBrokeragePool += remainingDeficit;
-        if (simBrokeragePool < 0) {
-          remainingDeficit = simBrokeragePool;
-          simBrokeragePool = 0;
+        simCashBuffer += remainingDeficit;
+        if (simCashBuffer < 0) {
+          remainingDeficit = simCashBuffer;
+          simCashBuffer = 0;
         } else {
           remainingDeficit = 0;
+        }
+
+        if (remainingDeficit < 0) {
+          simBrokeragePool += remainingDeficit;
+          if (simBrokeragePool < 0) {
+            remainingDeficit = simBrokeragePool;
+            simBrokeragePool = 0;
+          } else {
+            remainingDeficit = 0;
+          }
         }
 
         if (remainingDeficit < 0) {
@@ -128,7 +164,7 @@ export function simulateWealth(state, deps) {
         simDebt += (simDebt * monthlyDebtApr);
       }
 
-      currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool - simDebt;
+      currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool + simCashBuffer - simDebt;
 
       if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {
         absoluteFiAchievedAge = activeTimelineAge;
@@ -150,9 +186,10 @@ export function simulateWealth(state, deps) {
 
   // --- PHASE 2: RETIREMENT DRAWDOWN ---
   let drawdownAge = targetHorizonAge;
-  let drawdownPreTaxBucket   = simPreTaxPool;
-  let drawdownRothBucket     = simRothPool;
-  let drawdownBrokerageBucket = simBrokeragePool;
+  // At retirement, fold cash buffer into brokerage (it's all liquid non-retirement money)
+  let drawdownPreTaxBucket    = simPreTaxPool;
+  let drawdownRothBucket      = simRothPool;
+  let drawdownBrokerageBucket = simBrokeragePool + simCashBuffer;
 
   let indexedAnnualSpendingRequirement = state.monthlyExpenses * 12;
   const drawdownTimelineData = [];

@@ -203,7 +203,7 @@ for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
   Math.pow(1 + annualYield, yearsRemainingTo65);
 
 if (!absoluteCoastAchievedAge &&
-    spendableNetWorth >= coastFiRequiredThreshold) {
+    currentCompoundingNW >= coastFiRequiredThreshold) {
   absoluteCoastAchievedAge = activeTimelineAge;
 }
     }
@@ -325,11 +325,12 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
   const expectedMeanReturn = (state.marketYield / 100);
   const marketVolatility = 0.15;
   const initialAnnualSpending = state.monthlyExpenses * 12;
-  const inflationRate = 0.025;
+  const inflationRate = 0.03; // 3% — matches deterministic drawdown chart assumption
   const effectiveTaxRate =
   preTaxRatioAtRetirement *
   ((state.retirementTaxRate ?? 15) / 100);
-  const estimatedTaxBrake = 1 + effectiveTaxRate;
+  // Tax gross-up applies only to the pre-tax portion of withdrawals.
+  // Roth and brokerage withdrawals are tax-free; only traditional 401k/IRA draws are taxable.
 
   // Store full year-by-year paths for all runs: allPaths[year][run]
   const allPaths = Array.from({ length: totalYears + 1 }, () => []);
@@ -342,7 +343,13 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
 
     for (let year = 0; year < totalYears; year++) {
       const randomYield = generateGaussianRandom(expectedMeanReturn, marketVolatility);
-      const outflow = spending * estimatedTaxBrake;
+
+      // Only the pre-tax share of withdrawals needs to be grossed up for taxes.
+      // Roth + brokerage portions are tax-free at withdrawal.
+      const preTaxPortion  = spending * preTaxRatioAtRetirement;
+      const taxFreePortion = spending * (1 - preTaxRatioAtRetirement);
+      const taxOnPreTax    = preTaxPortion * (state.retirementTaxRate ?? 15) / 100;
+      const outflow        = preTaxPortion + taxOnPreTax + taxFreePortion;
 
       balance = balance - outflow;
       if (balance <= 0) {

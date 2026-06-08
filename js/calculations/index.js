@@ -34,8 +34,8 @@ export function computeAll(state) {
     : 0.5;
   const monteCarlo = runMonteCarloSimulation(state, simulation.terminalNW, preTaxRatioAtRetirement);
   
-  // 3. Keep your existing legacy standalone drawdown simulator intact if needed
-  const drawdown = simulateDrawdown(simulation.terminalNW, targetAge);
+  // 3. Standalone drawdown chart — uses actual monthly expenses to stay consistent with wealth simulation
+  const drawdown = simulateDrawdown(simulation.terminalNW, targetAge, state.monthlyExpenses);
 
   const homeEquity = state.homeValue - state.mortgage;
   const debtToAssetPct = balanceSheet.totalAssets > 0

@@ -47,9 +47,10 @@ export function computeTax(state) {
 
   const annualFica = annualSocialSecurity + annualMedicare;
 
-  // 9. State income tax — flat rate applied to gross (simplified; most states exempt retirement contributions)
+  // 9. State income tax — applied to primary filer's gross only for take-home calculation.
+  // Spouse income is earned separately on their own paycheck, so it shouldn't reduce this take-home.
   const stateTaxRate=['FL','TX','TN','WA','NV'].includes(state.stateCode)?0:(state.stateTaxRate??0)/100;
-  const annualStateTax=householdIncome*stateTaxRate;
+  const annualStateTax = gross * stateTaxRate;
 
   // 10. Employer match: matchRate% on contributions up to matchCeiling% of salary
   const matchRate    = (state.employerMatchRate    ?? 100) / 100;

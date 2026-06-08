@@ -176,7 +176,11 @@ export function simulateWealth(state, deps) {
     let brokeragePull = indexedAnnualSpendingRequirement * brokerageShare;
 
     // Tax gross-up on pre-tax withdrawals only — Roth and brokerage are tax-free at withdrawal
-    const taxOnPreTax = computeFederalTax(preTaxPull, state.filingStatus);
+    // Subtract standard deduction first: first $16,100 (single) / $32,200 (married) is tax-free
+    const retirementStatus = state.filingStatus === 'married' ? 'married' : 'single';
+    const standardDed = retirementStatus === 'married' ? 32200 : 16100;
+    const taxablePreTaxPull = Math.max(0, preTaxPull - standardDed);
+    const taxOnPreTax = computeFederalTax(taxablePreTaxPull, retirementStatus);
     let netPreTaxDeduction    = preTaxPull + taxOnPreTax;
     let netRothDeduction      = rothPull;
     let netBrokerageDeduction = brokeragePull;

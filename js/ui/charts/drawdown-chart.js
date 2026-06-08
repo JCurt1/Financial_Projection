@@ -42,9 +42,21 @@ export function createDrawdownChart() {
           tension: 0.15,
         },
         {
-          label: 'Post-Tax (Roth)',
+          label: 'Roth',
           data: [],
           borderColor: '#a855f7',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: false,
+          tension: 0.15,
+        },
+        {
+          label: 'Taxable Brokerage',
+          data: [],
+          borderColor: '#f59e0b',
           backgroundColor: 'transparent',
           borderWidth: 1.5,
           borderDash: [4, 3],
@@ -92,14 +104,16 @@ export function createDrawdownChart() {
 export function updateDrawdownChart(drawdownTimelineData) {
   if (!charts.drawdownChart || !drawdownTimelineData?.length) return;
 
-  const labels = drawdownTimelineData.map(d => 'Age ' + d.age);
-  const totalData = drawdownTimelineData.map(d => d.totalWealth);
-  const preTaxData = drawdownTimelineData.map(d => d.preTax);
-  const postTaxData = drawdownTimelineData.map(d => d.postTax);
+  const labels        = drawdownTimelineData.map(d => 'Age ' + d.age);
+  const totalData     = drawdownTimelineData.map(d => d.totalWealth);
+  const preTaxData    = drawdownTimelineData.map(d => d.preTax);
+  const rothData      = drawdownTimelineData.map(d => d.roth);
+  const brokerageData = drawdownTimelineData.map(d => d.brokerage);
 
-  charts.drawdownChart.data.labels = labels;
-  charts.drawdownChart.data.datasets[0].data = totalData;
-  charts.drawdownChart.data.datasets[1].data = preTaxData;
-  charts.drawdownChart.data.datasets[2].data = postTaxData;
+  charts.drawdownChart.data.labels                    = labels;
+  charts.drawdownChart.data.datasets[0].data          = totalData;
+  charts.drawdownChart.data.datasets[1].data          = preTaxData;
+  charts.drawdownChart.data.datasets[2].data          = rothData;
+  charts.drawdownChart.data.datasets[3].data          = brokerageData;
   charts.drawdownChart.update();
 }

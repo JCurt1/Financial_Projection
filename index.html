@@ -175,11 +175,21 @@
       </div>
 
       <div class="income-input-group">
-        <label for="in-match-pct">Employer Match</label>
-        <div class="income-field-wrap">
-          <input type="text" id="in-match-pct" class="mono-type" value="4" style="text-align: right; padding-right: 4px;" />
-          <span>%</span>
+        <label>Employer Match</label>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <div class="income-field-wrap" style="flex: 1;">
+            <input type="text" id="in-match-rate" class="mono-type" value="100" style="text-align: right; padding-right: 4px;" />
+            <span>%</span>
+          </div>
+          <span style="font-size: 11px; color: var(--text-secondary); white-space: nowrap;">up to</span>
+          <div class="income-field-wrap" style="flex: 1;">
+            <input type="text" id="in-match-ceiling" class="mono-type" value="4" style="text-align: right; padding-right: 4px;" />
+            <span>%</span>
+          </div>
         </div>
+        <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; display: block;">
+          Match rate · Salary ceiling
+        </span>
       </div>
 
       <div class="income-input-group">
@@ -254,54 +264,23 @@
           <div style="display: flex; align-items: center; gap: 6px;">
             <span style="font-size: 11px; color: var(--text-main);">Roth:</span>
             <div class="income-field-wrap" style="width: 60px; margin: 0; background: var(--bg-subtle);">
-              <input type="text" id="in-future-roth-split" class="mono-type" value="0" style="text-align: right; padding-right: 4px; font-size: 11px;" disabled />
+              <input type="text" id="in-future-roth-split" class="mono-type" value="50" style="text-align: right; padding-right: 4px; font-size: 11px;" disabled />
               <span style="padding-right: 4px; font-size: 10px;">%</span>
             </div>
           </div>
           <div style="display: flex; align-items: center; gap: 6px;">
             <span style="font-size: 11px; color: var(--text-main);">Traditional:</span>
             <div class="income-field-wrap" style="width: 60px; margin: 0;">
-              <input type="text" id="in-future-trad-split" class="mono-type" value="100" style="text-align: right; padding-right: 4px; font-size: 11px;" />
+              <input type="text" id="in-future-trad-split" class="mono-type" value="50" style="text-align: right; padding-right: 4px; font-size: 11px;" />
               <span style="padding-right: 4px; font-size: 10px;">%</span>
             </div>
           </div>
         </div>
-        <input type="range" id="in-future-split-slider" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" />
+        <input type="range" id="in-future-split-slider" min="0" max="100" value="50" style="width: 100%; accent-color: var(--primary);" />
       </div>
     </div>
 
-    <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px;">
-      <h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-main); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
-        Savings Behavior
-      </h4>
-      <p style="font-size: 10px; color: var(--text-secondary); margin: 0 0 12px 0;">
-        Models realistic cash drag — not all surplus gets invested immediately. Funds first fill your cash buffer, then the investment rate controls what fraction of remaining surplus reaches the market.
-      </p>
-
-      <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-        <div class="income-input-group" style="flex: 1; min-width: 140px;">
-          <label for="in-investment-rate">Investment Rate</label>
-          <div class="income-field-wrap">
-            <input type="text" id="in-investment-rate" class="mono-type" value="80" style="text-align: right; padding-right: 4px;" />
-            <span>%</span>
-          </div>
-          <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; display: block;">
-            % of surplus deployed to market
-          </span>
-        </div>
-
-        <div class="income-input-group" style="flex: 1; min-width: 140px;">
-          <label for="in-cash-buffer-months">Cash Buffer Target</label>
-          <div class="income-field-wrap">
-            <input type="text" id="in-cash-buffer-months" class="mono-type" value="3" style="text-align: right; padding-right: 4px;" />
-            <span>mo</span>
-          </div>
-          <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; display: block;">
-            Months of expenses to hold in cash
-          </span>
-        </div>
-      </div>
-    </div>
+    <div class="income-grid" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
       <div class="cashflow-summary" style="border-left-color: var(--blue);">
         <span class="cf-label">Est. Total Monthly Tax</span>
         <span class="cf-val" style="color: var(--blue);" id="cf-tax-withheld">$0/mo</span>

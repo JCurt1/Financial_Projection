@@ -33,7 +33,8 @@ export const HEALTH_TIERS = {
 export const DRAWDOWN_GROWTH_RATE = 0.05;
 export const DRAWDOWN_INITIAL_WITHDRAWAL_RATE = 0.04;
 export const DRAWDOWN_INFLATION_RATE = 0.03;
-export const DRAWDOWN_END_AGE = 90; 
+export const DRAWDOWN_END_AGE = 90;
+export const CASH_BUFFER_YIELD = 0.02; // ~2% HYSA/money market rate on uninvested cash
 
 export const STANDARD_DEDUCTION = {
   single: 16100,

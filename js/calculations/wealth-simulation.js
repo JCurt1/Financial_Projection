@@ -96,20 +96,21 @@ const taxableYield =
   for (let currentYearIndex = 1; currentYearIndex <= loopsTotal; currentYearIndex++) {
     const activeTimelineAge = currentSimulationAge + currentYearIndex;
 
-    for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
-      simulationMonthsOffset++;
+    // --- INSIDE THE MONTHLY TIMELINE LOOP ---
+for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
+  simulationMonthsOffset++;
 
-      // Compound all pools at their respective yields
-      simPreTaxPool    *= (1 + annualYield / 12);
-      simRothPool      *= (1 + annualYield / 12);
-      simBrokeragePool *= (1 + taxableYield / 12);
-      simCashBuffer    *= (1 + CASH_BUFFER_YIELD / 12);  // Low-yield HYSA rate
+  // 1. Compound ALL four investment pools + cash buffer once together
+  simPreTaxPool    *= (1 + annualYield / 12);
+  simRothPool      *= (1 + annualYield / 12);
+  simHsaPool       *= (1 + annualYield / 12); // Moved here cleanly
+  simBrokeragePool *= (1 + taxableYield / 12);
+  simCashBuffer    *= (1 + CASH_BUFFER_YIELD / 12); 
 
-      // Inject dedicated monthly streams into correct buckets
-      simPreTaxPool += monthlyPreTaxInflow;
-      simRothPool   += monthlyRothInflow;
-	  simHsaPool *= (1 + annualYield / 12);
-	  simHsaPool += monthlyBrokerageHsaInflow;
+  // 2. Inject dedicated monthly streams into correct buckets
+  simPreTaxPool += monthlyPreTaxInflow;
+  simRothPool   += monthlyRothInflow;
+  simHsaPool    += monthlyBrokerageHsaInflow;
 
       // Waterfall phase tracking
       let waterfallActivePhase = 'debt';

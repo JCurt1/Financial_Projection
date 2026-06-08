@@ -52,9 +52,11 @@ export function computeTax(state) {
   const stateTaxRate = (state.stateTaxRate ?? 0) / 100;
   const annualStateTax = gross * stateTaxRate;
 
-  // 10. Employer match
-  const effectiveMatchPercent = Math.min(state.deferral401k, state.employerMatch || 0);
-  const annualEmployerMatchDollars = gross * (effectiveMatchPercent / 100);
+  // 10. Employer match: matchRate% on contributions up to matchCeiling% of salary
+  const matchRate    = (state.employerMatchRate    ?? 100) / 100;
+  const matchCeiling = (state.employerMatchCeiling ?? 4)   / 100;
+  const effectiveDeferralForMatch = Math.min(state.deferral401k / 100, matchCeiling);
+  const annualEmployerMatchDollars = gross * effectiveDeferralForMatch * matchRate;
 
   // 11. Monthly take-home
   const monthlyGross             = gross / 12;

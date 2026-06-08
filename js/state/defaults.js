@@ -8,7 +8,8 @@ export const DEFAULT_STATE = {
   grossIncome: 50000,
   filingStatus: 'single',
   deferral401k: 15,
-  employerMatch: 4,
+  employerMatchRate: 100,       // % of contributions matched (e.g. 100 = dollar-for-dollar)
+  employerMatchCeiling: 4,      // Max % of salary eligible for match (e.g. 4 = up to 4% of gross)
   healthCostMonthly: 150,
   monthlyExpenses: 3200,
   debtApr: 12,
@@ -20,7 +21,7 @@ export const DEFAULT_STATE = {
   
   // Decoupled tax allocation split defaults (Percentages)
   currentTradSplitPercent: 100, // Existing nest egg defaults to 100% Traditional pre-tax
-  futureTradSplitPercent: 100,   // Future paychecks default to a balanced 50/50 split
+  futureTradSplitPercent: 50,   // Future paychecks default to a balanced 50/50 split
 
   // State & payroll tax
   stateTaxRate: 0,              // State income tax rate (%), default 0 — user sets their state

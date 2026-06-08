@@ -27,6 +27,6 @@ export function renderDashboard(result) {
   
   // 2. TRIGGER THE RE-DRAW AND PASS THE CALCULATED ARRAYS
   if (result.monteCarlo) {
-    updateMonteCarloChart(result.state, result.monteCarlo);
+    updateMonteCarloChart(result.state, result.monteCarlo, result.simulation.terminalNW);
   }
 }

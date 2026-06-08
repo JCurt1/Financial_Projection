@@ -8,7 +8,7 @@ export const HSA_LIMITS = {
 };
 
 export const FI_MULTIPLIER = 25;
-export const DEFAULT_TARGET_HORIZON_AGE = 60; 
+export const DEFAULT_TARGET_HORIZON_AGE = 65; 
 export const COAST_FI_REFERENCE_AGE = 65;
 export const MAX_MONTHLY_EXPENSES = 25000;
 export const MIN_AGE = 18;

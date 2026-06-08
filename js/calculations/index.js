@@ -27,10 +27,10 @@ export function computeAll(state) {
   const simulation = simulateWealth(state, { tax, cashflow, debt, runway, fi });
   
   // 2. RUN THE MONTE CARLO RISK ENGINE AT THE RECALCULATION STEP
-  // Compute the actual pre-tax ratio at retirement so Monte Carlo tax drag is accurate
-  const terminalTotal = simulation.drawdownTimelineData?.[0];
-  const preTaxRatioAtRetirement = terminalTotal && (terminalTotal.preTax + terminalTotal.postTax) > 0
-    ? terminalTotal.preTax / (terminalTotal.preTax + terminalTotal.postTax)
+  // Compute actual pre-tax ratio at retirement from the first drawdown data point
+  const retirementSnapshot = simulation.drawdownTimelineData?.[0];
+  const preTaxRatioAtRetirement = retirementSnapshot
+    ? retirementSnapshot.preTax / (retirementSnapshot.preTax + retirementSnapshot.roth + retirementSnapshot.brokerage + 0.01)
     : 0.5;
   const monteCarlo = runMonteCarloSimulation(state, simulation.terminalNW, preTaxRatioAtRetirement);
   

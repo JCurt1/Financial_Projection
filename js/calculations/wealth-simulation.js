@@ -249,58 +249,74 @@ function generateGaussianRandom(mean, standardDeviation) {
 // --- CORE MONTE CARLO STRESS TEST ENGINE ---
 export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRatioAtRetirement = 0.5) {
   const iterations = 1000;
-  const currentAge = state.targetHorizonAge || 65;
+  const startAge = state.targetHorizonAge || 65;
   const endAge = 90;
-  const totalYears = endAge - currentAge;
+  const totalYears = endAge - startAge;
 
   const expectedMeanReturn = (state.marketYield / 100);
   const marketVolatility = 0.15;
-  let indexedAnnualSpending = state.monthlyExpenses * 12;
+  const initialAnnualSpending = state.monthlyExpenses * 12;
   const inflationRate = 0.025;
+  const effectiveTaxRate = preTaxRatioAtRetirement * 0.22;
+  const estimatedTaxBrake = 1 + effectiveTaxRate;
 
-  const terminalBalancesCollection = [];
+  // Store full year-by-year paths for all runs: allPaths[year][run]
+  const allPaths = Array.from({ length: totalYears + 1 }, () => []);
 
   for (let simRun = 0; simRun < iterations; simRun++) {
-    let currentRunBalance = terminalAccumulatedNW;
-    let runSpendingTarget = indexedAnnualSpending;
-    let isDepleted = false;
+    let balance = terminalAccumulatedNW;
+    let spending = initialAnnualSpending;
+
+    allPaths[0].push(balance);
 
     for (let year = 0; year < totalYears; year++) {
-      const randomizedAnnualYield = generateGaussianRandom(expectedMeanReturn, marketVolatility);
+      const randomYield = generateGaussianRandom(expectedMeanReturn, marketVolatility);
+      const outflow = spending * estimatedTaxBrake;
 
-      // Blended tax drag: only pre-tax portion incurs withdrawal tax (~22% effective rate)
-      const effectiveTaxRate = preTaxRatioAtRetirement * 0.22;
-      const estimatedTaxBrake = 1 + effectiveTaxRate;
-      const totalYearlyOutflow = runSpendingTarget * estimatedTaxBrake;
-
-      currentRunBalance = currentRunBalance - totalYearlyOutflow;
-
-      if (currentRunBalance <= 0) {
-        currentRunBalance = 0;
-        isDepleted = true;
-        break;
+      balance = balance - outflow;
+      if (balance <= 0) {
+        balance = 0;
+      } else {
+        balance *= (1 + randomYield);
       }
+      spending *= (1 + inflationRate);
 
-      currentRunBalance *= (1 + randomizedAnnualYield);
-      runSpendingTarget *= (1 + inflationRate);
+      allPaths[year + 1].push(balance);
     }
-
-    terminalBalancesCollection.push(currentRunBalance);
   }
 
-  terminalBalancesCollection.sort((a, b) => a - b);
+  // Sort each year's cross-section to extract percentile bands
+  allPaths.forEach(yearSlice => yearSlice.sort((a, b) => a - b));
 
-  const totalSuccesses = terminalBalancesCollection.filter(balance => balance > 0).length;
+  function getPercentile(yearSlice, pct) {
+    return yearSlice[Math.floor(yearSlice.length * pct)] ?? 0;
+  }
+
+  const p10Path = allPaths.map(s => getPercentile(s, 0.10));
+  const p25Path = allPaths.map(s => getPercentile(s, 0.25));
+  const p50Path = allPaths.map(s => getPercentile(s, 0.50));
+  const p75Path = allPaths.map(s => getPercentile(s, 0.75));
+  const p90Path = allPaths.map(s => getPercentile(s, 0.90));
+
+  // Labels: Age startAge through endAge
+  const labels = [];
+  for (let age = startAge; age <= endAge; age++) labels.push('Age ' + age);
+
+  // Terminal success rate based on final year balances
+  const terminalBalances = allPaths[allPaths.length - 1];
+  const totalSuccesses = terminalBalances.filter(b => b > 0).length;
   const probabilityOfSuccess = (totalSuccesses / iterations) * 100;
-
-  const p10Index = Math.floor(iterations * 0.10);
-  const p50Index = Math.floor(iterations * 0.50);
-  const p90Index = Math.floor(iterations * 0.90);
 
   return {
     probabilityOfSuccess: Math.round(probabilityOfSuccess),
-    p10Baseline: terminalBalancesCollection[p10Index],
-    p50Baseline: terminalBalancesCollection[p50Index],
-    p90Baseline: terminalBalancesCollection[p90Index],
+    p10Baseline: p10Path[p10Path.length - 1],
+    p50Baseline: p50Path[p50Path.length - 1],
+    p90Baseline: p90Path[p90Path.length - 1],
+    labels,
+    p10Path,
+    p25Path,
+    p50Path,
+    p75Path,
+    p90Path,
   };
 }

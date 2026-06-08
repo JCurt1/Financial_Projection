@@ -68,6 +68,9 @@ export function initIncomePanel() {
 
   bindSyncInput('in-hsa-monthly', 'hsaCostMonthly');
 
+  // State income tax rate
+  bindSyncInput('in-state-tax-rate', 'stateTaxRate', true);
+
 
 
   const statusSelect = document.getElementById('in-status');
@@ -256,5 +259,4 @@ export function initIncomePanel() {
 
   document.getElementById('tier-family').addEventListener('click', () => setHealthTier('family'));
 
-} 
-
+}

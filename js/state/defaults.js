@@ -23,7 +23,7 @@ export const DEFAULT_STATE = {
   
   // Decoupled tax allocation split defaults (Percentages)
   currentTradSplitPercent: 100, // Existing nest egg defaults to 100% Traditional pre-tax
-  futureTradSplitPercent: 50,   // Future paychecks default to a balanced 50/50 split
+  futureTradSplitPercent: 100,  // Future paychecks default to 100% traditional (pre-tax)
 
   // State & payroll tax
   stateTaxRate: 0,

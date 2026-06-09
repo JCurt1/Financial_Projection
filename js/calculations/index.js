@@ -5,7 +5,6 @@ import { computeDebtPaydown } from './debt-paydown.js';
 import { computeEmergencyRunway } from './emergency-runway.js';
 import { computeFITargets } from './fi-targets.js';
 import { simulateWealth, runMonteCarloSimulation } from './wealth-simulation.js'; // Imported runMonteCarloSimulation
-import { simulateDrawdown } from './retirement-drawdown.js';
 import { DEFAULT_TARGET_HORIZON_AGE } from '../config/constants.js';
 import { deriveRetirementAssumptions } from './derived-assumptions.js';
 
@@ -43,9 +42,6 @@ export function computeAll(state) {
     : 0.5;
   const monteCarlo = runMonteCarloSimulation(enrichedState, simulation.terminalNW, preTaxRatioAtRetirement);
   
-  // 3. Standalone drawdown chart — uses actual monthly expenses to stay consistent with wealth simulation
-  const drawdown = simulateDrawdown(simulation.terminalNW, targetAge, enrichedState.monthlyExpenses);
-
   const homeEquity = state.homeValue - state.mortgage;
   const debtToAssetPct = balanceSheet.totalAssets > 0
     ? (balanceSheet.totalLiabilities / balanceSheet.totalAssets) * 100
@@ -62,7 +58,6 @@ export function computeAll(state) {
       ...simulation,
       targetHorizonAge: targetAge // Explicitly pass it forward so renderers like projector.js can see it
     },
-    drawdown,
     monteCarlo, // EXPORTS THE COMPLETE MATRIX OUT TO YOUR RENDER PLUGINS
     metrics: { homeEquity, debtToAssetPct },
     state: enrichedState,

@@ -36,6 +36,7 @@ export const DEFAULT_STATE = {
   // capitalGainsDrag: fraction of brokerage yield lost to taxes/fees annually (%)
   retirementTaxRate: 15,
   capitalGainsDrag: 10,
+  annualSalaryGrowth: 2.0,      // % annual raise applied during accumulation phase
   // Cash drag / investment behavior
   investmentRate: 80,           // % of surplus actually deployed to brokerage (vs sits as cash)
   cashBufferMonths: 3,          // Target cash buffer size in months of expenses before investing

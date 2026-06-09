@@ -27,6 +27,7 @@ function setHealthTier(tier) {
 export function initIncomePanel() {
   // Numeric inputs
   bindSyncInput('in-gross', 'grossIncome');
+  bindSyncInput('in-salary-growth', 'annualSalaryGrowth', true);
   bindSyncInput('in-401k-pct', 'deferral401k', true);
   bindSyncInput('in-match-rate', 'employerMatchRate', true);
   bindSyncInput('in-match-ceiling', 'employerMatchCeiling', true);

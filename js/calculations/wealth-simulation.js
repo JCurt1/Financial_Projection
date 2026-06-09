@@ -71,22 +71,12 @@ const taxableYield =
   labelsCollection.push('Age ' + currentSimulationAge);
   trajectoryCollection.push(currentCompoundingNW);
 
-  // --- 2. MONTHLY INFLOW ROUTING ---
-  // Employer match: matchRate% on contributions up to matchCeiling% of salary
-  const matchRate    = (state.employerMatchRate    ?? 100) / 100;
-  const matchCeiling = (state.employerMatchCeiling ?? 4)   / 100;
-  const effectiveDeferralForMatch = Math.min(state.deferral401k / 100, matchCeiling);
-  const annualEmployerMatchDollars = state.grossIncome * effectiveDeferralForMatch * matchRate;
-
-  // Pre-Tax: Traditional 401(k) employee contributions + employer match
-  const monthlyPreTaxInflow = (tax.traditional401k + annualEmployerMatchDollars) / 12;
-
-  // Roth: Roth 401(k) contributions only (HSA goes to brokerage — it's triple-tax-advantaged
-  // but functionally liquid, so we keep it separate from locked Roth)
-  const monthlyRothInflow = tax.roth401k / 12;
-
-  // Brokerage: HSA contributions (liquid, tax-advantaged spending account)
-  const monthlyBrokerageHsaInflow = tax.traditionalHsa / 12;
+  // --- 2. INFLOW ROUTING CONSTANTS (salary-growth-independent portions) ---
+  const matchRate        = (state.employerMatchRate    ?? 100) / 100;
+  const matchCeiling     = (state.employerMatchCeiling ?? 4)   / 100;
+  const deferralRate     = state.deferral401k / 100;
+  const tradRatio        = (state.futureTradSplitPercent ?? 50) / 100;
+  const salaryGrowthRate = (state.annualSalaryGrowth ?? 0) / 100;
 
   let simulationMonthsOffset = 0;
   let absoluteFiAchievedAge = null;
@@ -96,8 +86,37 @@ const taxableYield =
   for (let currentYearIndex = 1; currentYearIndex <= loopsTotal; currentYearIndex++) {
     const activeTimelineAge = currentSimulationAge + currentYearIndex;
 
+    // Re-derive salary-dependent inflows for this year
+    const yearsGrown   = currentYearIndex - 1;
+    const grownGross   = state.grossIncome * Math.pow(1 + salaryGrowthRate, yearsGrown);
+
+    // 401(k) contributions — capped at IRS limit
+    const annual401k       = Math.min(grownGross * deferralRate, 23500);
+    const annualTrad401k   = annual401k * tradRatio;
+    const annualRoth401k   = annual401k - annualTrad401k;
+
+    // Employer match on grown salary
+    const effectiveDeferralForMatch = Math.min(deferralRate, matchCeiling);
+    const annualEmployerMatch       = grownGross * effectiveDeferralForMatch * matchRate;
+
+    // Take-home on grown salary — scale tax amounts proportionally to gross growth.
+    // Avoids a full computeTax() call while keeping bracket-rate accuracy reasonable
+    // (valid assumption as long as marginal rate bracket doesn't shift significantly).
+    const grossGrowthFactor  = grownGross / (state.grossIncome || 1);
+    const grownFederal       = (tax.monthlyFederal  * 12) * grossGrowthFactor;
+    const grownFica          = (tax.monthlyFica     * 12) * grossGrowthFactor;
+    const grownState         = (tax.monthlyStateTax * 12) * grossGrowthFactor;
+    const grownTakehome      = grownGross - grownFederal - grownFica - grownState
+                               - annual401k - tax.traditionalHsa
+                               - (state.healthCostMonthly * 12);
+    const grownSavingsMargin = grownTakehome / 12 - state.monthlyExpenses;
+
+    const monthlyPreTaxInflow       = (annualTrad401k + annualEmployerMatch) / 12;
+    const monthlyRothInflow         = annualRoth401k / 12;
+    const monthlyBrokerageHsaInflow = tax.traditionalHsa / 12;
+
     // --- INSIDE THE MONTHLY TIMELINE LOOP ---
-for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
+    for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
   simulationMonthsOffset++;
 
   // 1. Compound ALL four investment pools + cash buffer once together
@@ -113,23 +132,23 @@ for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
   simHsaPool    += monthlyBrokerageHsaInflow;
 
       // Route savings margin / deficit through tiered waterfall
-      if (simDebt > 0 && calculatedSavingsMargin > 0) {
+      if (simDebt > 0 && grownSavingsMargin > 0) {
         // Phase 1: Paying down debt — overflow goes to cash buffer first
         const debtInterest = simDebt * monthlyDebtApr;
-        simDebt += debtInterest - calculatedSavingsMargin;
+        simDebt += debtInterest - grownSavingsMargin;
         if (simDebt < 0) {
           simCashBuffer += Math.abs(simDebt);
           simDebt = 0;
         }
-      } else if (simDebt <= 0 && calculatedSavingsMargin > 0) {
+      } else if (simDebt <= 0 && grownSavingsMargin > 0) {
         // Phase 2: Debt-free — fill cash buffer to target first, then invest remainder
         const cashBufferHeadroom = Math.max(0, cashBufferTarget - simCashBuffer);
 
         if (cashBufferHeadroom > 0) {
           // Still building the cash buffer — fill it up first
-          const toBuffer = Math.min(calculatedSavingsMargin, cashBufferHeadroom);
+          const toBuffer = Math.min(grownSavingsMargin, cashBufferHeadroom);
           simCashBuffer += toBuffer;
-          const remainder = calculatedSavingsMargin - toBuffer;
+          const remainder = grownSavingsMargin - toBuffer;
           // Any leftover after filling buffer: apply investment rate
           if (remainder > 0) {
             simBrokeragePool += remainder * investmentRate;
@@ -137,11 +156,11 @@ for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
           }
         } else {
           // Buffer is full — apply investment rate to full surplus
-          simBrokeragePool += calculatedSavingsMargin * investmentRate;
+          simBrokeragePool += grownSavingsMargin * investmentRate;
         }
-      } else if (calculatedSavingsMargin < 0) {
+      } else if (grownSavingsMargin < 0) {
         // Budget deficit — draw from cash buffer first, then brokerage, then Roth, then pre-tax
-        let remainingDeficit = calculatedSavingsMargin;
+        let remainingDeficit = grownSavingsMargin;
 
         simCashBuffer += remainingDeficit;
         if (simCashBuffer < 0) {
@@ -177,7 +196,7 @@ for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
         }
       }
 
-      if (simDebt > 0 && calculatedSavingsMargin <= 0) {
+      if (simDebt > 0 && grownSavingsMargin <= 0) {
         simDebt += (simDebt * monthlyDebtApr);
       }
 
@@ -336,9 +355,14 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
 
       // Only the pre-tax share of withdrawals needs to be grossed up for taxes.
       // Roth + brokerage portions are tax-free at withdrawal.
+      // Use progressive marginal brackets + standard deduction — same logic as the
+      // deterministic drawdown in simulateWealth() — so MC success rates are consistent.
+      const retirementFilingStatus = state.filingStatus === 'married' ? 'married' : 'single';
+      const mcStandardDed = retirementFilingStatus === 'married' ? 32200 : 16100;
       const preTaxPortion  = spending * preTaxRatioAtRetirement;
       const taxFreePortion = spending * (1 - preTaxRatioAtRetirement);
-      const taxOnPreTax    = preTaxPortion * (state.retirementTaxRate ?? 15) / 100;
+      const taxablePreTax  = Math.max(0, preTaxPortion - mcStandardDed);
+      const taxOnPreTax    = computeFederalTax(taxablePreTax, retirementFilingStatus);
       const outflow        = preTaxPortion + taxOnPreTax + taxFreePortion;
 
       balance = balance - outflow;

@@ -33,7 +33,6 @@ export function initIncomePanel() {
   bindSyncInput('in-health-raw', 'healthCostMonthly');
   bindSyncInput('in-hsa-monthly', 'hsaCostMonthly');
   bindSyncInput('in-state-tax-rate', 'stateTaxRate', true);
-  bindSyncInput('in-investment-rate', 'investmentRate', true);
   bindSyncInput('in-cash-buffer-months', 'cashBufferMonths');
   bindSyncInput('in-spouse-income', 'spouseIncome');
 

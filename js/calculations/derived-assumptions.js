@@ -42,7 +42,7 @@ export function deriveRetirementAssumptions(state) {
   const federalTaxOnWithdrawal = computeFederalTax(taxableWithdrawal, status);
 
   // State tax on the full withdrawal (same no-income-tax states)
-  const noIncomeTaxStates = ['FL', 'TX', 'TN', 'WA', 'NV'];
+  const noIncomeTaxStates = ['FL', 'TX', 'TN', 'WA', 'NV', 'AK', 'SD', 'WY'];
   const stateRate = noIncomeTaxStates.includes(state.stateCode)
     ? 0
     : (state.stateTaxRate ?? 0) / 100;

@@ -1,6 +1,6 @@
 import { parseInputVal } from '../utils/currency.js';
 import { setState } from '../state/store.js';
-import { HEALTH_TIERS } from '../config/constants.js';
+import { HEALTH_TIERS, STATE_TAX_RATES } from '../config/constants.js';
 
 function bindSyncInput(elemId, stateKey, isPercent = false) {
   const element = document.getElementById(elemId);
@@ -125,4 +125,13 @@ export function initIncomePanel() {
   document.getElementById('tier-family').addEventListener('click', () => setHealthTier('family'));
 }
 
-const st=document.getElementById('in-state-code'); if(st){st.addEventListener('change',e=>setState({stateCode:e.target.value}));}
+const st = document.getElementById('in-state-code');
+const stRateInput = document.getElementById('in-state-tax-rate');
+if (st) {
+  st.addEventListener('change', (e) => {
+    const code = e.target.value;
+    const defaultRate = STATE_TAX_RATES[code] ?? 0;
+    setState({ stateCode: code, stateTaxRate: defaultRate });
+    if (stRateInput) stRateInput.value = defaultRate;
+  });
+}

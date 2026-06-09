@@ -40,3 +40,60 @@ export const STANDARD_DEDUCTION = {
   single: 16100,
   married: 32200,
 };
+
+// State income tax default rates (%) — effective middle-bracket estimate for a typical earner.
+// No-income-tax states are 0. Taxed states use a reasonable flat/blended rate;
+// users can override manually. Source: 2025 state tax schedules.
+export const STATE_TAX_RATES = {
+  AK: 0,   // No income tax
+  FL: 0,   // No income tax
+  NH: 0,   // No income tax (Interest & Dividends Tax fully repealed 2025)
+  NV: 0,   // No income tax
+  SD: 0,   // No income tax
+  TN: 0,   // No income tax
+  TX: 0,   // No income tax
+  WA: 0,   // No income tax
+  WY: 0,   // No income tax
+  AL: 4.0,
+  AR: 4.4,
+  AZ: 2.5, // Flat rate
+  CA: 6.0, // Effective rate; top marginal is 13.3%
+  CO: 4.4, // Flat rate
+  CT: 5.0,
+  DC: 6.0,
+  DE: 4.8,
+  GA: 5.49, // Flat rate (phasing down to 4.99% by 2029)
+  HI: 7.9,
+  IA: 4.82,
+  ID: 5.8,
+  IL: 4.95, // Flat rate
+  IN: 3.05, // Flat rate
+  KS: 5.2,
+  KY: 4.0,  // Flat rate
+  LA: 3.0,
+  MA: 5.0,  // Flat rate (9% on cap gains/interest)
+  MD: 4.75,
+  ME: 6.75,
+  MI: 4.25, // Flat rate
+  MN: 6.8,
+  MO: 4.7,
+  MS: 4.7,
+  MT: 5.9,
+  NC: 4.5,  // Flat rate
+  ND: 1.95,
+  NE: 5.2,
+  NJ: 5.5,
+  NM: 4.9,
+  NY: 6.0,  // Effective rate; top marginal is 10.9%
+  OH: 3.5,
+  OK: 4.75,
+  OR: 8.0,
+  PA: 3.07, // Flat rate
+  RI: 4.75,
+  SC: 6.2,
+  UT: 4.65, // Flat rate
+  VA: 5.75,
+  VT: 6.6,
+  WI: 5.3,
+  WV: 4.82,
+};

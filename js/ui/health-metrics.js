@@ -3,6 +3,21 @@ import { setState } from '../state/store.js';
 import { MAX_MONTHLY_EXPENSES } from '../config/constants.js';
 
 export function initHealthMetrics() {
+  // Expense inflation % input
+  const expenseGrowthInput = document.getElementById('in-expense-growth');
+  if (expenseGrowthInput) {
+    expenseGrowthInput.addEventListener('blur', () => {
+      let val = parseFloat(expenseGrowthInput.value);
+      if (isNaN(val) || val < 0) val = 0;
+      if (val > 10) val = 10;
+      setState({ annualExpenseGrowth: val });
+      expenseGrowthInput.value = val;
+    });
+    expenseGrowthInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') expenseGrowthInput.blur();
+    });
+  }
+
   const sliderExpenses = document.getElementById('sl-expenses');
   const textExpenses = document.getElementById('txt-expenses');
 

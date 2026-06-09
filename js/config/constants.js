@@ -36,6 +36,12 @@ export const DRAWDOWN_INFLATION_RATE = 0.03; // 3% — matches Monte Carlo infla
 export const DRAWDOWN_END_AGE = 90;
 export const CASH_BUFFER_YIELD = 0.045; // ~4.5% HYSA/money market rate (2026)
 
+// Social Security rough replacement rate — fraction of pre-retirement gross income.
+// 35% is a conservative middle-ground estimate for a median earner with a full work history.
+// SS eligibility starts at 62 (reduced) or 67 (full retirement age).
+export const SS_REPLACEMENT_RATE = 0.35;
+export const SS_FULL_RETIREMENT_AGE = 67;
+
 export const STANDARD_DEDUCTION = {
   single: 16100,
   married: 32200,

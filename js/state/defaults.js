@@ -37,6 +37,7 @@ export const DEFAULT_STATE = {
   retirementTaxRate: 15,
   capitalGainsDrag: 10,
   annualSalaryGrowth: 2.0,      // % annual raise applied during accumulation phase
+  annualExpenseGrowth: 2.0,     // % annual lifestyle inflation applied during accumulation phase
   // Cash drag / investment behavior
   investmentRate: 80,           // % of surplus actually deployed to brokerage (vs sits as cash)
   cashBufferMonths: 3,          // Target cash buffer size in months of expenses before investing

@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, SS_REPLACEMENT_RATE, SS_FULL_RETIREMENT_AGE } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 
 export function simulateWealth(state, deps) {
@@ -76,7 +76,8 @@ const taxableYield =
   const matchCeiling     = (state.employerMatchCeiling ?? 4)   / 100;
   const deferralRate     = state.deferral401k / 100;
   const tradRatio        = (state.futureTradSplitPercent ?? 50) / 100;
-  const salaryGrowthRate = (state.annualSalaryGrowth ?? 0) / 100;
+  const salaryGrowthRate  = (state.annualSalaryGrowth  ?? 0) / 100;
+  const expenseGrowthRate = (state.annualExpenseGrowth ?? 0) / 100;
 
   let simulationMonthsOffset = 0;
   let absoluteFiAchievedAge = null;
@@ -109,7 +110,8 @@ const taxableYield =
     const grownTakehome      = grownGross - grownFederal - grownFica - grownState
                                - annual401k - tax.traditionalHsa
                                - (state.healthCostMonthly * 12);
-    const grownSavingsMargin = grownTakehome / 12 - state.monthlyExpenses;
+    const grownMonthlyExpenses = state.monthlyExpenses * Math.pow(1 + expenseGrowthRate, yearsGrown);
+    const grownSavingsMargin   = grownTakehome / 12 - grownMonthlyExpenses;
 
     const monthlyPreTaxInflow       = (annualTrad401k + annualEmployerMatch) / 12;
     const monthlyRothInflow         = annualRoth401k / 12;
@@ -231,7 +233,17 @@ if (!absoluteCoastAchievedAge &&
   let drawdownRothBucket      = simRothPool;
   let drawdownBrokerageBucket = simBrokeragePool + simCashBuffer;
 
-  let indexedAnnualSpendingRequirement = state.monthlyExpenses * 12;
+  // Inflate expenses forward to retirement age as starting drawdown spending baseline
+  const drawdownAccumYears    = targetHorizonAge - state.initialAge;
+  const expenseGrowthRateD    = (state.annualExpenseGrowth ?? 0) / 100;
+  let indexedAnnualSpendingRequirement =
+    state.monthlyExpenses * Math.pow(1 + expenseGrowthRateD, Math.max(0, drawdownAccumYears)) * 12;
+
+  // Social Security: 35% wage replacement starting at full retirement age (67).
+  // Applied as an annual income offset against portfolio withdrawals.
+  const ssAnnualBenefit = state.grossIncome * SS_REPLACEMENT_RATE;
+  const ssStartAge      = Math.max(targetHorizonAge, SS_FULL_RETIREMENT_AGE);
+
   const drawdownTimelineData = [];
 
   while (drawdownAge <= DRAWDOWN_END_AGE) {
@@ -243,14 +255,18 @@ if (!absoluteCoastAchievedAge &&
       continue;
     }
 
+    // Net spending from portfolio = expenses minus any Social Security income
+    const ssOffset = drawdownAge >= ssStartAge ? ssAnnualBenefit : 0;
+    const netAnnualWithdrawal = Math.max(0, indexedAnnualSpendingRequirement - ssOffset);
+
     // Pro-rata draw from each bucket based on its share of total portfolio
     const preTaxShare    = drawdownPreTaxBucket / combinedAssets;
     const rothShare      = drawdownRothBucket / combinedAssets;
     const brokerageShare = drawdownBrokerageBucket / combinedAssets;
 
-    let preTaxPull    = indexedAnnualSpendingRequirement * preTaxShare;
-    let rothPull      = indexedAnnualSpendingRequirement * rothShare;
-    let brokeragePull = indexedAnnualSpendingRequirement * brokerageShare;
+    let preTaxPull    = netAnnualWithdrawal * preTaxShare;
+    let rothPull      = netAnnualWithdrawal * rothShare;
+    let brokeragePull = netAnnualWithdrawal * brokerageShare;
 
     // Tax gross-up on pre-tax withdrawals only — Roth and brokerage are tax-free at withdrawal
     // Subtract standard deduction first: first $16,100 (single) / $32,200 (married) is tax-free

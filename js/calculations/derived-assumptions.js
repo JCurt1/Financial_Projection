@@ -1,17 +1,18 @@
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 import { STANDARD_DEDUCTION } from '../config/constants.js';
 
-// 2026 long-term capital gains brackets (federal)
+// 2026 long-term capital gains brackets (federal) — IRS Rev. Proc. 2025-32
 // Thresholds are for taxable income (after standard deduction)
+// 2026 LTCG thresholds — IRS Rev. Proc. 2025-32
 const LTCG_BRACKETS = {
   single:  [
-    { max: 48350,   rate: 0.00 },
-    { max: 533400,  rate: 0.15 },
+    { max: 49450,   rate: 0.00 },
+    { max: 545500,  rate: 0.15 },
     { max: Infinity, rate: 0.20 },
   ],
   married: [
-    { max: 96700,   rate: 0.00 },
-    { max: 600050,  rate: 0.15 },
+    { max: 98900,   rate: 0.00 },
+    { max: 613700,  rate: 0.15 },
     { max: Infinity, rate: 0.20 },
   ],
 };

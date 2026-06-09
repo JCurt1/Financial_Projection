@@ -3,7 +3,6 @@ import { STANDARD_DEDUCTION } from '../config/constants.js';
 
 // 2026 long-term capital gains brackets (federal) — IRS Rev. Proc. 2025-32
 // Thresholds are for taxable income (after standard deduction)
-// 2026 LTCG thresholds — IRS Rev. Proc. 2025-32
 const LTCG_BRACKETS = {
   single:  [
     { max: 49450,   rate: 0.00 },
@@ -56,10 +55,10 @@ export function deriveRetirementAssumptions(state) {
     : 0;
 
   // --- Capital Gains Drag ---
-  // Use current gross income as a proxy for retirement brokerage income level.
-  // In reality this would be lower in retirement, but it's a conservative estimate.
-  // Long-term cap gains rate is based on total taxable income.
-  const taxableIncomeForCapGains = Math.max(0, (state.grossIncome || 0) - stdDed);
+  // Use estimated retirement withdrawal as the income proxy for LTCG bracket lookup.
+  // During retirement, income drops significantly — using working gross income here
+  // would overstate the cap gains drag and make brokerage projections too pessimistic.
+  const taxableIncomeForCapGains = Math.max(0, estimatedAnnualWithdrawal - stdDed);
   const brackets = LTCG_BRACKETS[status];
   let federalCapGainsRate = 0.15; // default to middle tier
   for (const bracket of brackets) {
@@ -70,8 +69,9 @@ export function deriveRetirementAssumptions(state) {
   }
 
   // Net Investment Income Tax (NIIT): 3.8% on investment income above $200k single / $250k married
+  // Use retirement withdrawal estimate — NIIT rarely applies in retirement at typical spending levels
   const niitThreshold = status === 'married' ? 250000 : 200000;
-  const niitRate = (state.grossIncome || 0) > niitThreshold ? 0.038 : 0;
+  const niitRate = estimatedAnnualWithdrawal > niitThreshold ? 0.038 : 0;
 
   // State rate also applies to brokerage gains in most states
   const derivedCapGainsDrag = (federalCapGainsRate + niitRate + stateRate) * 100;

@@ -40,12 +40,14 @@ export function simulateDrawdown(terminalNetWorth, userStartAge, monthlyExpenses
   drawdownTrajectory.push(drawPool);
 
   // 4. Dynamic boundaries loop execution
+  // Order: withdraw first, then grow — matches wealth-simulation.js drawdown
+  // and the conventional safe withdrawal rate (SWR) approach.
   for (let currentAgeTracker = actualStartAge + 1; currentAgeTracker <= actualEndAge; currentAgeTracker++) {
     if (drawPool > 0) {
-      drawPool *= (1 + DRAWDOWN_GROWTH_RATE);
       currentYearlyWithdrawal *= (1 + DRAWDOWN_INFLATION_RATE);
       drawPool -= currentYearlyWithdrawal;
       if (drawPool < 0) drawPool = 0;
+      drawPool *= (1 + DRAWDOWN_GROWTH_RATE);
     } else {
       drawPool = 0;
     }

@@ -34,7 +34,7 @@ export const DRAWDOWN_GROWTH_RATE = 0.05;
 export const DRAWDOWN_INITIAL_WITHDRAWAL_RATE = 0.04;
 export const DRAWDOWN_INFLATION_RATE = 0.03; // 3% — matches Monte Carlo inflation assumption
 export const DRAWDOWN_END_AGE = 90;
-export const CASH_BUFFER_YIELD = 0.02; // ~2% HYSA/money market rate on uninvested cash
+export const CASH_BUFFER_YIELD = 0.045; // ~4.5% HYSA/money market rate (2026)
 
 export const STANDARD_DEDUCTION = {
   single: 16100,

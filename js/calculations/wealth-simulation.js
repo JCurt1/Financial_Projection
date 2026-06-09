@@ -112,16 +112,6 @@ for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
   simRothPool   += monthlyRothInflow;
   simHsaPool    += monthlyBrokerageHsaInflow;
 
-      // Waterfall phase tracking
-      let waterfallActivePhase = 'debt';
-      if (simDebt <= 0 || (debtCanBePaidOff && simulationMonthsOffset > monthsToDebtFree)) {
-        waterfallActivePhase = 'runway';
-      }
-      if (emergencyMonths >= 6 || (waterfallActivePhase === 'runway' &&
-          (simulationMonthsOffset - monthsToDebtFree) * calculatedSavingsMargin >= neededFor6Mo)) {
-        waterfallActivePhase = 'investing';
-      }
-
       // Route savings margin / deficit through tiered waterfall
       if (simDebt > 0 && calculatedSavingsMargin > 0) {
         // Phase 1: Paying down debt — overflow goes to cash buffer first

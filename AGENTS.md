@@ -4,7 +4,7 @@
 
 - `calculations/*` — **pure functions only**. Never import `document` or query the DOM.
 - `ui/*` — **DOM only**. Never perform financial math beyond display formatting (`formatCurrency`).
-- `config/*` — All magic numbers (401k limits, tax brackets, FI multiplier, drawdown rates).
+- `config/*` — All magic numbers (401k limits, tax brackets, FI multiplier, drawdown rates). Tax brackets live in `config/tax-brackets-2026.js`.
 - `state/store.js` — Single source of truth for application state. Use `setState()` to mutate.
 
 ## Data flow

@@ -287,6 +287,32 @@
 
     <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px;">
       <h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-main); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+        Savings Behavior
+      </h4>
+      <div class="income-input-group">
+        <label for="in-investment-rate">Surplus Deployed to Market</label>
+        <div class="income-field-wrap">
+          <input type="text" id="in-investment-rate" class="mono-type" value="80" style="text-align: right; padding-right: 4px;" />
+          <span>%</span>
+        </div>
+        <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; display: block;">
+          % of monthly surplus actually invested (remainder = lifestyle / irregular spend)
+        </span>
+      </div>
+      <div class="income-input-group" style="margin-top: 10px;">
+        <label for="in-cash-buffer-months">Cash Buffer Target</label>
+        <div class="income-field-wrap">
+          <input type="text" id="in-cash-buffer-months" class="mono-type" value="3" style="text-align: right; padding-right: 4px;" />
+          <span>mo</span>
+        </div>
+        <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; display: block;">
+          Months of expenses to keep in cash/HYSA before investing surplus
+        </span>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px;">
+      <h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-main); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
         Tax Allocation Controls
       </h4>
 

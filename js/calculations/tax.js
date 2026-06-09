@@ -49,6 +49,8 @@ export function computeTax(state) {
 
   // 9. State income tax — applied to primary filer's gross only for take-home calculation.
   // Spouse income is earned separately on their own paycheck, so it shouldn't reduce this take-home.
+  // No-income-tax states are zeroed here regardless of stateTaxRate input.
+  // This list must stay in sync with derived-assumptions.js (noIncomeTaxStates) and the UI dropdown optgroup.
   const stateTaxRate=['FL','TX','TN','WA','NV','AK','SD','WY','NH'].includes(state.stateCode)?0:(state.stateTaxRate??0)/100;
   const annualStateTax = gross * stateTaxRate;
 

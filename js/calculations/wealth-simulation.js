@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, SS_REPLACEMENT_RATE, SS_FULL_RETIREMENT_AGE } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, SS_REPLACEMENT_RATE, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 
 export function simulateWealth(state, deps) {
@@ -14,7 +14,6 @@ const taxableYield =
   const targetHorizonAge = state.targetHorizonAge || 65;
 
   const monthlyDebtApr = debt.monthlyDebtApr;
-  const calculatedSavingsMargin = cashflow.savingsMargin;
   const monthsToDebtFree = debt.monthsToDebtFree;
   const debtCanBePaidOff = debt.canPayOff;
   const emergencyMonths = runway.emergencyMonths;
@@ -100,11 +99,16 @@ const taxableYield =
     const effectiveDeferralForMatch = Math.min(deferralRate, matchCeiling);
     const annualEmployerMatch       = grownGross * effectiveDeferralForMatch * matchRate;
 
-    // Take-home on grown salary — scale tax amounts proportionally to gross growth.
-    // Avoids a full computeTax() call while keeping bracket-rate accuracy reasonable
-    // (valid assumption as long as marginal rate bracket doesn't shift significantly).
+    // Take-home on grown salary:
+    // Federal uses real bracket calc each year; FICA and state are linear so proportional scaling is exact.
+    const filingStatus       = state.filingStatus === 'married' ? 'married' : 'single';
+    const grownTaxableIncome = Math.max(0,
+      grownGross - annual401k - tax.traditionalHsa
+      - (state.healthCostMonthly * 12) - STANDARD_DEDUCTION[filingStatus]
+    );
+    const grownFederal = computeFederalTax(grownTaxableIncome, filingStatus);
+    // FICA and state tax are linear — proportional scaling is exact
     const grossGrowthFactor  = grownGross / (state.grossIncome || 1);
-    const grownFederal       = (tax.monthlyFederal  * 12) * grossGrowthFactor;
     const grownFica          = (tax.monthlyFica     * 12) * grossGrowthFactor;
     const grownState         = (tax.monthlyStateTax * 12) * grossGrowthFactor;
     const grownTakehome      = grownGross - grownFederal - grownFica - grownState

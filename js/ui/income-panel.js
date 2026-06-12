@@ -123,15 +123,15 @@ export function initIncomePanel() {
   document.getElementById('tier-single').addEventListener('click', () => setHealthTier('single'));
   document.getElementById('tier-spouse').addEventListener('click', () => setHealthTier('spouse'));
   document.getElementById('tier-family').addEventListener('click', () => setHealthTier('family'));
-}
-
-const st = document.getElementById('in-state-code');
-const stRateInput = document.getElementById('in-state-tax-rate');
-if (st) {
-  st.addEventListener('change', (e) => {
-    const code = e.target.value;
-    const defaultRate = STATE_TAX_RATES[code] ?? 0;
-    setState({ stateCode: code, stateTaxRate: defaultRate });
-    if (stRateInput) stRateInput.value = defaultRate;
-  });
+  // State code dropdown — auto-fills state tax rate
+  const st = document.getElementById('in-state-code');
+  const stRateInput = document.getElementById('in-state-tax-rate');
+  if (st) {
+    st.addEventListener('change', (e) => {
+      const code = e.target.value;
+      const defaultRate = STATE_TAX_RATES[code] ?? 0;
+      setState({ stateCode: code, stateTaxRate: defaultRate });
+      if (stRateInput) stRateInput.value = defaultRate;
+    });
+  }
 }

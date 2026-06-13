@@ -81,3 +81,37 @@ export function deriveRetirementAssumptions(state) {
     derivedCapGainsDrag: Math.round(derivedCapGainsDrag * 10) / 10,
   };
 }
+
+
+/**
+ * Derives the investment deployment rate from the user's savings behavior.
+ * Instead of a fixed magic number, we estimate what fraction of monthly surplus
+ * actually gets invested based on their observed savings rate (401k + surplus / gross).
+ *
+ * Higher savings rates indicate more disciplined deployment; lower rates imply
+ * more lifestyle drag, irregular spending, and cash sitting idle.
+ *
+ * Capped at 90% — even disciplined investors have irregular expenses.
+ *
+ *   savingsRate < 5%   → 60%
+ *   5–15%              → 72%
+ *   15–25%             → 82%
+ *   25%+               → 90%
+ */
+export function deriveInvestmentRate(state, savingsMargin) {
+  const gross = state.grossIncome || 1;
+  // Annual 401k contribution (employee only — already being deployed)
+  const annual401k = Math.min(gross * (state.deferral401k / 100), 23500);
+  // Annual surplus available for brokerage (can be negative — clamp to 0 for rate calc)
+  const annualSurplus = Math.max(0, (savingsMargin || 0) * 12);
+  const totalSavings = annual401k + annualSurplus;
+  const savingsRate = totalSavings / gross;
+
+  let rate;
+  if      (savingsRate < 0.05) rate = 60;
+  else if (savingsRate < 0.15) rate = 72;
+  else if (savingsRate < 0.25) rate = 82;
+  else                         rate = 90;
+
+  return rate;
+}

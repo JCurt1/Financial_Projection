@@ -65,7 +65,7 @@ export function initProjector() {
 
 }
 
-export function renderProjector({ simulation, derivedRetirementTaxRate, derivedCapGainsDrag }) {
+export function renderProjector({ simulation, derivedRetirementTaxRate, derivedCapGainsDrag, derivedInvestmentRate }) {
   // Update Compounding Engine text strings dynamically
   document.getElementById('fv-target-label').textContent =
     `Projected Portfolio at Age ${simulation.targetHorizonAge}`;
@@ -87,4 +87,6 @@ export function renderProjector({ simulation, derivedRetirementTaxRate, derivedC
   const capGainsEl = document.getElementById('txt-cap-gains-drag');
   if (retTaxEl && derivedRetirementTaxRate != null) retTaxEl.value = derivedRetirementTaxRate.toFixed(1);
   if (capGainsEl && derivedCapGainsDrag != null) capGainsEl.value = derivedCapGainsDrag.toFixed(1);
+  const investRateEl = document.getElementById('txt-invest-rate');
+  if (investRateEl && derivedInvestmentRate != null) investRateEl.value = derivedInvestmentRate;
 }

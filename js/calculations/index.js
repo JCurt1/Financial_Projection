@@ -6,7 +6,7 @@ import { computeEmergencyRunway } from './emergency-runway.js';
 import { computeFITargets } from './fi-targets.js';
 import { simulateWealth, runMonteCarloSimulation } from './wealth-simulation.js'; // Imported runMonteCarloSimulation
 import { DEFAULT_TARGET_HORIZON_AGE } from '../config/constants.js';
-import { deriveRetirementAssumptions } from './derived-assumptions.js';
+import { deriveRetirementAssumptions, deriveInvestmentRate } from './derived-assumptions.js';
 
 /**
  * ComputedResult — single object passed to all UI renderers.
@@ -27,12 +27,18 @@ export function computeAll(state) {
   const balanceSheet = computeBalanceSheet(enrichedState);
   const tax = computeTax(enrichedState);
   const cashflow = computeCashflow(enrichedState, tax);
-  const debt = computeDebtPaydown(enrichedState, cashflow.savingsMargin);
-  const runway = computeEmergencyRunway(enrichedState, cashflow, debt);
-  const fi = computeFITargets(enrichedState, balanceSheet);
+
+  // Derive investment rate now that savingsMargin is known
+  const derivedInvestmentRate = deriveInvestmentRate(enrichedState, cashflow.savingsMargin);
+  // Re-enrich state so simulateWealth picks up the derived rate
+  const enrichedState2 = { ...enrichedState, investmentRate: derivedInvestmentRate };
+
+  const debt = computeDebtPaydown(enrichedState2, cashflow.savingsMargin);
+  const runway = computeEmergencyRunway(enrichedState2, cashflow, debt);
+  const fi = computeFITargets(enrichedState2, balanceSheet);
   
   // 1. Pass state to wealth projection (calculates accumulation and returns tax-split arrays)
-  const simulation = simulateWealth(enrichedState, { tax, cashflow, debt, runway, fi });
+  const simulation = simulateWealth(enrichedState2, { tax, cashflow, debt, runway, fi });
   
   // 2. RUN THE MONTE CARLO RISK ENGINE AT THE RECALCULATION STEP
   // Compute actual pre-tax ratio at retirement from the first drawdown data point
@@ -40,7 +46,7 @@ export function computeAll(state) {
   const preTaxRatioAtRetirement = retirementSnapshot
     ? retirementSnapshot.preTax / (retirementSnapshot.preTax + retirementSnapshot.roth + retirementSnapshot.brokerage + 0.01)
     : 0.5;
-  const monteCarlo = runMonteCarloSimulation(enrichedState, simulation.terminalNW, preTaxRatioAtRetirement);
+  const monteCarlo = runMonteCarloSimulation(enrichedState2, simulation.terminalNW, preTaxRatioAtRetirement);
   
   const homeEquity = state.homeValue - state.mortgage;
   const debtToAssetPct = balanceSheet.totalAssets > 0
@@ -60,8 +66,9 @@ export function computeAll(state) {
     },
     monteCarlo, // EXPORTS THE COMPLETE MATRIX OUT TO YOUR RENDER PLUGINS
     metrics: { homeEquity, debtToAssetPct },
-    state: enrichedState,
+    state: enrichedState2,
     derivedRetirementTaxRate,
     derivedCapGainsDrag,
+    derivedInvestmentRate,
   };
 }

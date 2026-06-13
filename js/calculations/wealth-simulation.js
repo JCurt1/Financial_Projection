@@ -248,9 +248,13 @@ if (!absoluteCoastAchievedAge &&
 
   // Social Security: 35% wage replacement starting at full retirement age (67).
   // Applied as an annual income offset against portfolio withdrawals.
-  // SS benefit uses tiered replacement rates by income level (SSA bend-point approximation)
-  const ssAnnualBenefit = estimateSsAnnualBenefit(state.grossIncome);
-  const ssStartAge      = Math.max(targetHorizonAge, SS_FULL_RETIREMENT_AGE);
+  // SS benefit uses tiered replacement rates on the salary at retirement, not current salary.
+  // SS is based on your highest 35 years of indexed earnings — using the grown salary at
+  // retirement age is a much better proxy than today's income for someone early in their career.
+  const yearsToRetirement   = Math.max(0, targetHorizonAge - state.initialAge);
+  const salaryAtRetirement  = state.grossIncome * Math.pow(1 + salaryGrowthRate, yearsToRetirement);
+  const ssAnnualBenefit     = estimateSsAnnualBenefit(salaryAtRetirement);
+  const ssStartAge          = Math.max(targetHorizonAge, SS_FULL_RETIREMENT_AGE);
 
   const drawdownTimelineData = [];
 
@@ -358,9 +362,14 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
   const marketVolatility = 0.15;
   const initialAnnualSpending = state.monthlyExpenses * 12;
   const inflationRate = 0.03; // 3% — matches deterministic drawdown chart assumption
-  const effectiveTaxRate =
-  preTaxRatioAtRetirement *
-  ((state.retirementTaxRate ?? 15) / 100);
+
+  // SS offset — same tiered benefit and start-age logic as the deterministic drawdown.
+  // Uses salary grown to retirement age, consistent with the accumulation phase fix.
+  const mcYearsToRetirement  = Math.max(0, startAge - state.initialAge);
+  const mcSalaryAtRetirement = state.grossIncome * Math.pow((1 + (state.annualSalaryGrowth ?? 0) / 100), mcYearsToRetirement);
+  const mcSsAnnualBenefit    = estimateSsAnnualBenefit(mcSalaryAtRetirement);
+  const mcSsStartAge         = Math.max(startAge, SS_FULL_RETIREMENT_AGE);
+
   // Tax gross-up applies only to the pre-tax portion of withdrawals.
   // Roth and brokerage withdrawals are tax-free; only traditional 401k/IRA draws are taxable.
 
@@ -376,14 +385,20 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
     for (let year = 0; year < totalYears; year++) {
       const randomYield = generateGaussianRandom(expectedMeanReturn, marketVolatility);
 
+      // SS offset: subtract benefit from gross spending once SS kicks in.
+      // currentAge tracks which calendar year we're in relative to retirement start.
+      const currentAge = startAge + year;
+      const ssOffset   = currentAge >= mcSsStartAge ? mcSsAnnualBenefit : 0;
+      const netSpending = Math.max(0, spending - ssOffset);
+
       // Only the pre-tax share of withdrawals needs to be grossed up for taxes.
       // Roth + brokerage portions are tax-free at withdrawal.
       // Use progressive marginal brackets + standard deduction — same logic as the
       // deterministic drawdown in simulateWealth() — so MC success rates are consistent.
       const retirementFilingStatus = state.filingStatus === 'married' ? 'married' : 'single';
       const mcStandardDed = retirementFilingStatus === 'married' ? 32200 : 16100;
-      const preTaxPortion  = spending * preTaxRatioAtRetirement;
-      const taxFreePortion = spending * (1 - preTaxRatioAtRetirement);
+      const preTaxPortion  = netSpending * preTaxRatioAtRetirement;
+      const taxFreePortion = netSpending * (1 - preTaxRatioAtRetirement);
       const taxablePreTax  = Math.max(0, preTaxPortion - mcStandardDed);
       const taxOnPreTax    = computeFederalTax(taxablePreTax, retirementFilingStatus);
       const outflow        = preTaxPortion + taxOnPreTax + taxFreePortion;

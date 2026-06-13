@@ -39,7 +39,29 @@ export const CASH_BUFFER_YIELD = 0.045; // ~4.5% HYSA/money market rate (2026)
 // Social Security rough replacement rate — fraction of pre-retirement gross income.
 // 35% is a conservative middle-ground estimate for a median earner with a full work history.
 // SS eligibility starts at 62 (reduced) or 67 (full retirement age).
-export const SS_REPLACEMENT_RATE = 0.35;
+// Social Security tiered replacement rate — SSA bend-point model approximation.
+// The SSA replaces a higher fraction of income for lower earners and a lower
+// fraction for higher earners. These tiers approximate the actual SSA bend-point
+// formula for a worker with a full 35-year earnings history at the given income level.
+// Source: SSA benefit formula, 2026 bend points (~$1,226 / ~$7,391/mo AIME).
+//
+//   < $30k gross  → ~55% (low earner, high replacement)
+//   $30k–$60k     → ~40% (median earner)
+//   $60k–$100k    → ~32% (above-median)
+//   $100k–$160k   → ~25% (higher earner)
+//   > $160k       → ~20% (high earner, SS wage base caps benefit)
+//
+// Returns estimated annual SS benefit based on current gross income.
+export function estimateSsAnnualBenefit(grossIncome) {
+  let rate;
+  if      (grossIncome <  30000) rate = 0.55;
+  else if (grossIncome <  60000) rate = 0.40;
+  else if (grossIncome < 100000) rate = 0.32;
+  else if (grossIncome < 160000) rate = 0.25;
+  else                           rate = 0.20;
+  return grossIncome * rate;
+}
+
 export const SS_FULL_RETIREMENT_AGE = 67;
 
 export const STANDARD_DEDUCTION = {

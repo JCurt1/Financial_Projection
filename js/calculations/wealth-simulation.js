@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, SS_REPLACEMENT_RATE, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 
 export function simulateWealth(state, deps) {
@@ -7,8 +7,11 @@ export function simulateWealth(state, deps) {
   const capitalGainsDrag =
   (state.capitalGainsDrag ?? 10) / 100;
 
-const taxableYield =
-  annualYield * (1 - capitalGainsDrag);
+  // During accumulation, brokerage compounds at the full market yield.
+  // Capital gains tax is only owed on realized gains (i.e. when you sell),
+  // not annually. A buy-and-hold index investor defers tax until withdrawal.
+  // Cap gains drag is applied during the drawdown phase only (see below).
+  const drawdownBrokerageYield = DRAWDOWN_GROWTH_RATE * (1 - capitalGainsDrag);
 
   const currentSimulationAge = state.initialAge;
   const targetHorizonAge = state.targetHorizonAge || 65;
@@ -129,7 +132,7 @@ const taxableYield =
   simPreTaxPool    *= (1 + annualYield / 12);
   simRothPool      *= (1 + annualYield / 12);
   simHsaPool       *= (1 + annualYield / 12); // Moved here cleanly
-  simBrokeragePool *= (1 + taxableYield / 12);
+  simBrokeragePool *= (1 + annualYield / 12);  // Full yield during accumulation — gains deferred until sale
   simCashBuffer    *= (1 + CASH_BUFFER_YIELD / 12); 
 
   // 2. Inject dedicated monthly streams into correct buckets
@@ -245,7 +248,8 @@ if (!absoluteCoastAchievedAge &&
 
   // Social Security: 35% wage replacement starting at full retirement age (67).
   // Applied as an annual income offset against portfolio withdrawals.
-  const ssAnnualBenefit = state.grossIncome * SS_REPLACEMENT_RATE;
+  // SS benefit uses tiered replacement rates by income level (SSA bend-point approximation)
+  const ssAnnualBenefit = estimateSsAnnualBenefit(state.grossIncome);
   const ssStartAge      = Math.max(targetHorizonAge, SS_FULL_RETIREMENT_AGE);
 
   const drawdownTimelineData = [];
@@ -316,8 +320,7 @@ if (!absoluteCoastAchievedAge &&
 
     drawdownPreTaxBucket    *= (1 + DRAWDOWN_GROWTH_RATE);
     drawdownRothBucket      *= (1 + DRAWDOWN_GROWTH_RATE);
-    drawdownBrokerageBucket *=
-  (1 + (DRAWDOWN_GROWTH_RATE * (1 - capitalGainsDrag)));
+    drawdownBrokerageBucket *= (1 + drawdownBrokerageYield);  // Cap gains drag applied here at realization
     indexedAnnualSpendingRequirement *= (1 + DRAWDOWN_INFLATION_RATE);
 
     drawdownAge++;

@@ -7,11 +7,19 @@ import {
 } from '../config/constants.js';
 
 /**
+ * NOTE: This function is not currently used. The drawdown chart is driven entirely by
+ * simulateWealth() in wealth-simulation.js, which produces drawdownTimelineData with
+ * full tax-bucket detail, inflation-adjusted spending, and SS offsets.
+ * Do not wire this up without first aligning it to that baseline — it lacks:
+ *   - expense inflation forward to retirement age
+ *   - Social Security offset
+ *   - per-bucket (pre-tax / Roth / brokerage) tracking
+ *
  * Simulates retirement drawdown trajectory dynamically based on user retirement age.
  * @param {number} terminalNetWorth - Nest egg portfolio balance at retirement.
  * @param {number} [userStartAge] - The actual chosen retirement start age.
- * @param {number} [monthlyExpenses] - Actual monthly expenses from user input.
- *   If provided, uses real spending as the withdrawal baseline (consistent with wealth simulation).
+ * @param {number} [monthlyExpenses] - Current monthly expenses (NOT inflation-adjusted to retirement).
+ *   If provided, uses real spending as the withdrawal baseline.
  *   Falls back to the 4% rule if not provided.
  */
 export function simulateDrawdown(terminalNetWorth, userStartAge, monthlyExpenses) {

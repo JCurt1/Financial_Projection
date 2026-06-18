@@ -358,6 +358,24 @@
       </div>
     </div>
 
+    <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px;">
+      <div class="slider-group" style="margin-bottom: 16px;">
+        <div class="slider-label">
+          Estimated Monthly Household Expenses
+          <input type="text" class="slider-input" id="txt-expenses" value="$3,200/mo" />
+        </div>
+        <input type="range" min="0" max="25000" step="1" value="3200" id="sl-expenses" />
+      </div>
+
+      <div class="income-input-group">
+        <label for="in-expense-growth">Expense Inflation</label>
+        <div class="income-field-wrap">
+          <input type="text" id="in-expense-growth" class="mono-type" value="2" style="text-align:right;" />
+          <span>%</span>
+        </div>
+      </div>
+    </div>
+
     <div class="income-grid" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
       <div class="cashflow-summary" style="border-left-color: var(--blue);">
         <span class="cf-label">Est. Total Monthly Tax</span>
@@ -476,22 +494,6 @@
 
     <div class="panel">
       <p class="section-label" style="margin-top: 0;">Financial Health Diagnostics</p>
-
-      <div class="slider-group" style="margin-top: 10px; margin-bottom: 24px;">
-        <div class="slider-label">
-          Estimated Monthly Household Expenses
-          <input type="text" class="slider-input" id="txt-expenses" value="$3,200/mo" />
-        </div>
-        <input type="range" min="0" max="25000" step="1" value="3200" id="sl-expenses" />
-      </div>
-
-      <div class="income-input-group" style="margin-bottom: 24px;">
-        <label for="in-expense-growth">Expense Inflation</label>
-        <div class="income-field-wrap">
-          <input type="text" id="in-expense-growth" class="mono-type" value="2" style="text-align:right;" />
-          <span>%</span>
-        </div>
-      </div>
 
       <div class="metric-row">
         <div class="metric-meta">

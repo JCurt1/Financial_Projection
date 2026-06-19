@@ -16,8 +16,6 @@ export const DEFAULT_STATE = {
   marketYield: 7.0,
   initialAge: 31,
   targetHorizonAge: 65,
-  spouseWorking: false,
-  spouseIncome: 0,
   hsaCostMonthly: 0,
   hsaBalance: 0,
   

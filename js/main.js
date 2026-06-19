@@ -47,16 +47,11 @@ function seedDOMFromState(s) {
   setRaw('in-state-tax-rate',  s.stateTaxRate);
   setRaw('in-cash-buffer-months', s.cashBufferMonths);
   setRaw('in-expense-growth',  s.annualExpenseGrowth);
-  setFmt('in-spouse-income',   s.spouseIncome);
 
   const statusEl = document.getElementById('in-status');
   if (statusEl) {
     statusEl.value = s.filingStatus;
-    const spouseWrap = document.getElementById('spouse-working-wrap');
-    if (spouseWrap) spouseWrap.style.display = s.filingStatus === 'married' ? 'block' : 'none';
   }
-  const spouseCheck = document.getElementById('in-spouse-working');
-  if (spouseCheck) spouseCheck.checked = !!s.spouseWorking;
 
   const stateEl = document.getElementById('in-state-code');
   if (stateEl) stateEl.value = s.stateCode;

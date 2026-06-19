@@ -35,32 +35,26 @@ export function initIncomePanel() {
   bindSyncInput('in-hsa-monthly', 'hsaCostMonthly');
   bindSyncInput('in-state-tax-rate', 'stateTaxRate', true);
   bindSyncInput('in-cash-buffer-months', 'cashBufferMonths');
-  bindSyncInput('in-spouse-income', 'spouseIncome');
+
 
   // Filing status
   const statusSelect = document.getElementById('in-status');
-  const spouseWrap = document.getElementById('spouse-working-wrap');
-  const spouseCheck = document.getElementById('in-spouse-working');
+
 
   if (statusSelect) {
     statusSelect.addEventListener('change', (e) => {
       const val = e.target.value;
       const isMarried = val === 'married';
-      if (spouseWrap) spouseWrap.style.display = isMarried ? 'block' : 'none';
+
       const updates = { filingStatus: val };
       if (!isMarried) {
-        updates.spouseWorking = false;
-        if (spouseCheck) spouseCheck.checked = false;
+
       }
       setState(updates);
     });
   }
 
-  if (spouseCheck) {
-    spouseCheck.addEventListener('change', (e) => {
-      setState({ spouseWorking: e.target.checked });
-    });
-  }
+
 
   // Dual slider sync controller
   function setupSplitController({ sliderId, tradInputId, rothInputId, stateKey }) {

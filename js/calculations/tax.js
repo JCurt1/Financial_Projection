@@ -9,7 +9,6 @@ import { computeFederalTax } from '../config/tax-brackets-2026.js';
 export function computeTax(state) {
   const gross = state.grossIncome;
   const status = state.filingStatus === 'married' ? 'married' : 'single';
-  const householdIncome = gross + (status === 'married' ? (state.spouseIncome || 0) : 0);
 
   // 1. 401(k) limits — catch-up contributions apply at age 50+
   // Age 60–63: SECURE 2.0 super catch-up ($35,750); Age 50–59 and 64+: standard catch-up ($32,500)
@@ -38,34 +37,27 @@ export function computeTax(state) {
   const annualHsaInput = (state.hsaCostMonthly ?? 0) * 12;
   const traditionalHsa = Math.min(annualHsaInput, maxHsaAllowed);
 
-  // 5. Federal taxable income — MFJ files jointly so spouse income shifts the bracket.
-  // Pre-tax deductions (401k, HSA, health) are primary-filer-only; spouse's are on their own paycheck.
-  const spouseGross = (status === 'married' && state.spouseWorking) ? (state.spouseIncome || 0) : 0;
+  // 5. Federal taxable income — user enters combined household gross for married filers.
+  // Pre-tax deductions (401k, HSA, health) are applied against the full gross.
   const preTaxHealth = state.healthCostMonthly * 12;
-  let taxableIncome = (gross + spouseGross) - traditional401k - traditionalHsa - preTaxHealth - STANDARD_DEDUCTION[status];
+  let taxableIncome = gross - traditional401k - traditionalHsa - preTaxHealth - STANDARD_DEDUCTION[status];
   if (taxableIncome < 0) taxableIncome = 0;
 
-  // 6. Federal income tax — computed on joint income, pro-rated back to primary filer by income share.
-  // Spouse's share accounted for separately via spouseNetMonthly below.
-  const annualFederalTaxJoint = computeFederalTax(taxableIncome, status);
-  const primaryFilerShareFraction = householdIncome > 0 ? gross / householdIncome : 1;
-  const annualFederalTax = annualFederalTaxJoint * primaryFilerShareFraction;
-  const annualFederalTaxSpouse = annualFederalTaxJoint * (1 - primaryFilerShareFraction);
+  // 6. Federal income tax on household taxable income
+  const annualFederalTax = computeFederalTax(taxableIncome, status);
 
-  // 7. FICA — per-paycheck, per-person. Primary filer only here; spouse computed separately.
+  // 7. FICA — assessed on full gross (household income entered by user)
   const ssWages = Math.min(gross, SOCIAL_SECURITY_WAGE_BASE);
   const annualSocialSecurity = ssWages * SOCIAL_SECURITY_RATE;
 
-  // 8. Medicare (1.45% uncapped + 0.9% additional above threshold)
-  const additionalMedicareThreshold = ADDITIONAL_MEDICARE_THRESHOLD[status];
+  // 8. Medicare (1.45% uncapped + 0.9% additional above $200k per-person threshold)
   const annualMedicare = gross * MEDICARE_RATE
-    + Math.max(0, gross - additionalMedicareThreshold) * ADDITIONAL_MEDICARE_RATE;
+    + Math.max(0, gross - ADDITIONAL_MEDICARE_THRESHOLD.single) * ADDITIONAL_MEDICARE_RATE;
 
   const annualFica = annualSocialSecurity + annualMedicare;
 
-  // 9. State income tax — primary filer's gross only (spouse pays their own state tax).
+  // 9. State income tax
   // No-income-tax states are zeroed here regardless of stateTaxRate input.
-  // This list must stay in sync with derived-assumptions.js (noIncomeTaxStates) and the UI dropdown optgroup.
   const stateTaxRate=['FL','TX','TN','WA','NV','AK','SD','WY','NH'].includes(state.stateCode)?0:(state.stateTaxRate??0)/100;
   const annualStateTax = gross * stateTaxRate;
 
@@ -75,19 +67,7 @@ export function computeTax(state) {
   const effectiveDeferralForMatch = Math.min(state.deferral401k / 100, matchCeiling);
   const annualEmployerMatchDollars = gross * effectiveDeferralForMatch * matchRate;
 
-  // 11. Spouse net monthly contribution to household cash flow.
-  // Subtracts spouse's pro-rated federal tax share, FICA, and state tax.
-  // No 401k or health deductions modeled for spouse (unknown, conservative).
-  let spouseNetMonthly = 0;
-  if (spouseGross > 0) {
-    const spouseFica = (Math.min(spouseGross, SOCIAL_SECURITY_WAGE_BASE) * SOCIAL_SECURITY_RATE)
-      + (spouseGross * MEDICARE_RATE)
-      + (Math.max(0, spouseGross - ADDITIONAL_MEDICARE_THRESHOLD[status]) * ADDITIONAL_MEDICARE_RATE);
-    const spouseStateTax = spouseGross * stateTaxRate;
-    spouseNetMonthly = (spouseGross - annualFederalTaxSpouse - spouseFica - spouseStateTax) / 12;
-  }
-
-  // 12. Monthly take-home — primary filer's paycheck + spouse net household contribution
+  // 11. Monthly take-home
   const monthlyGross             = gross / 12;
   const monthlyFederal           = annualFederalTax / 12;
   const monthlyFica              = annualFica / 12;
@@ -102,8 +82,7 @@ export function computeTax(state) {
     - monthlyStateTax
     - monthlyEmployee401k
     - monthlyHsa
-    - monthlyHealth
-    + spouseNetMonthly;
+    - monthlyHealth;
 
   // Combined monthly tax display (federal + FICA + state)
   const monthlyTax = monthlyFederal + monthlyFica + monthlyStateTax;

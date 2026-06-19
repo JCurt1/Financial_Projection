@@ -134,10 +134,15 @@ export function deriveRetirementAssumptions(state) {
  *
  * Capped at 90% — even disciplined investors have irregular expenses.
  *
- *   savingsRate < 5%   → 60%
- *   5–15%              → 72%
- *   15–25%             → 82%
- *   25%+               → 90%
+ * Tiers reflect realistic deployment behavior at each savings level.
+ * Very low margins are modeled conservatively — thin surplus is prone to
+ * irregular expenses, no auto-invest setup, and cash sitting idle in checking.
+ *
+ *   savingsRate < 2%   → 20%  (barely positive; most surplus gets absorbed)
+ *   2–5%               → 40%  (tight but intentional savers)
+ *   5–15%              → 65%  (moderate savers with some discipline)
+ *   15–25%             → 80%  (strong savers, likely automated)
+ *   25%+               → 90%  (high savers, consistent deployment)
  */
 export function deriveInvestmentRate(state, savingsMargin) {
   const gross = state.grossIncome || 1;
@@ -150,9 +155,10 @@ export function deriveInvestmentRate(state, savingsMargin) {
   const savingsRate   = totalSavings / gross;
 
   let rate;
-  if      (savingsRate < 0.05) rate = 60;
-  else if (savingsRate < 0.15) rate = 72;
-  else if (savingsRate < 0.25) rate = 82;
+  if      (savingsRate < 0.02) rate = 20;
+  else if (savingsRate < 0.05) rate = 40;
+  else if (savingsRate < 0.15) rate = 65;
+  else if (savingsRate < 0.25) rate = 80;
   else                         rate = 90;
 
   return rate;

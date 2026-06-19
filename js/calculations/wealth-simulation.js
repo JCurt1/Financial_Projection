@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63 } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 
 export function simulateWealth(state, deps) {
@@ -93,8 +93,12 @@ export function simulateWealth(state, deps) {
     const yearsGrown   = currentYearIndex - 1;
     const grownGross   = state.grossIncome * Math.pow(1 + salaryGrowthRate, yearsGrown);
 
-    // 401(k) contributions — capped at IRS limit
-    const annual401k       = Math.min(grownGross * deferralRate, 23500);
+    // 401(k) contributions — capped at IRS limit, with age-based catch-up
+    const activeAge = currentSimulationAge + currentYearIndex;
+    const annual401kCap = (activeAge >= 60 && activeAge <= 63)
+      ? MAX_401K_CATCHUP_60_63
+      : activeAge >= 50 ? MAX_401K_CATCHUP_50 : MAX_401K_INDIVIDUAL;
+    const annual401k       = Math.min(grownGross * deferralRate, annual401kCap);
     const annualTrad401k   = annual401k * tradRatio;
     const annualRoth401k   = annual401k - annualTrad401k;
 

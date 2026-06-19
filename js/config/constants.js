@@ -1,5 +1,7 @@
-// Individual employee elective deferral limits
-export const MAX_401K_INDIVIDUAL = 24500; 
+// Individual employee elective deferral limits (2026)
+export const MAX_401K_INDIVIDUAL = 24500;
+export const MAX_401K_CATCHUP_50 = 32500;    // Age 50–59 and 64+: +$8,000 catch-up
+export const MAX_401K_CATCHUP_60_63 = 35750; // Age 60–63: +$11,250 super catch-up (SECURE 2.0)
 
 // HSA Contribution Limits (Triple Tax Advantaged) — 2026 IRS official
 export const HSA_LIMITS = {
@@ -9,7 +11,7 @@ export const HSA_LIMITS = {
 
 // FICA / Payroll Tax Constants (2026)
 export const SOCIAL_SECURITY_RATE = 0.062;         // 6.2% employee share
-export const SOCIAL_SECURITY_WAGE_BASE = 176100;   // SS wage base cap
+export const SOCIAL_SECURITY_WAGE_BASE = 184500;   // SS wage base cap (2026)
 export const MEDICARE_RATE = 0.0145;               // 1.45% uncapped
 export const ADDITIONAL_MEDICARE_RATE = 0.009;     // 0.9% above threshold
 export const ADDITIONAL_MEDICARE_THRESHOLD = {

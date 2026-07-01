@@ -5,6 +5,9 @@ export const DEFAULT_STATE = {
   brokerage: 8500,
   consumerDebt: 17000,
   mortgage: 0,
+  mortgageRate: 6.5,            // % — annual mortgage interest rate, used to amortize the balance forward
+  mortgageTermYears: 30,        // Remaining years on the mortgage, used for amortization
+  homeAppreciationRate: 3.5,    // % — long-run average home price appreciation used to grow homeValue
   grossIncome: 50000,
   filingStatus: 'single',
   deferral401k: 15,

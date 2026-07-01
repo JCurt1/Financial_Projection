@@ -47,6 +47,9 @@ function seedDOMFromState(s) {
   setRaw('in-state-tax-rate',  s.stateTaxRate);
   setRaw('in-cash-buffer-months', s.cashBufferMonths);
   setRaw('in-expense-growth',  s.annualExpenseGrowth);
+  setRaw('in-mortgage-rate',   s.mortgageRate);
+  setRaw('in-mortgage-term',   s.mortgageTermYears);
+  setRaw('in-home-appreciation', s.homeAppreciationRate);
 
   const statusEl = document.getElementById('in-status');
   if (statusEl) {

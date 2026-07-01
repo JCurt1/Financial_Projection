@@ -35,6 +35,9 @@ export function initIncomePanel() {
   bindSyncInput('in-hsa-monthly', 'hsaCostMonthly');
   bindSyncInput('in-state-tax-rate', 'stateTaxRate', true);
   bindSyncInput('in-cash-buffer-months', 'cashBufferMonths');
+  bindSyncInput('in-mortgage-rate', 'mortgageRate', true);
+  bindSyncInput('in-mortgage-term', 'mortgageTermYears', true);
+  bindSyncInput('in-home-appreciation', 'homeAppreciationRate', true);
 
 
   // Filing status

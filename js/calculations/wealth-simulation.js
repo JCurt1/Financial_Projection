@@ -1,5 +1,6 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63 } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
+import { computeAnnualFica } from './tax.js';
 
 export function simulateWealth(state, deps) {
   const { tax, cashflow, debt, runway, fi } = deps;
@@ -55,6 +56,27 @@ export function simulateWealth(state, deps) {
   simHsaPool +
   simCashBuffer -
   simDebt;
+
+  // --- Home value & mortgage amortization (tracked separately from liquid net worth) ---
+  // Home equity is excluded from currentCompoundingNW/fiTargetNumber comparisons — standard
+  // FIRE practice, since you can't spend down a primary residence without also housing yourself.
+  // It's tracked in parallel so the net worth chart can show TRUE total net worth (matching
+  // the balance sheet, which already includes home value/mortgage) instead of silently
+  // dropping the house the moment the projection starts.
+  let simHomeValue = state.homeValue || 0;
+  let simMortgageBalance = state.mortgage || 0;
+  const mortgageAnnualRate  = (state.mortgageRate ?? 6.5) / 100;
+  const mortgageMonthlyRate = mortgageAnnualRate / 12;
+  const mortgageTermMonths  = Math.max(1, (state.mortgageTermYears ?? 30) * 12);
+  const homeAppreciationRate  = (state.homeAppreciationRate ?? 3.5) / 100;
+  const homeAppreciationMonthly = Math.pow(1 + homeAppreciationRate, 1 / 12) - 1;
+  // Fixed level payment on the current balance/rate/remaining term (standard amortization formula)
+  const mortgageMonthlyPayment = simMortgageBalance <= 0 ? 0
+    : mortgageMonthlyRate === 0
+      ? simMortgageBalance / mortgageTermMonths
+      : simMortgageBalance * mortgageMonthlyRate / (1 - Math.pow(1 + mortgageMonthlyRate, -mortgageTermMonths));
+
+  
   
   const retirementTaxFactor =
   1 - ((state.retirementTaxRate ?? 15) / 100);
@@ -72,6 +94,7 @@ export function simulateWealth(state, deps) {
 
   labelsCollection.push('Age ' + currentSimulationAge);
   trajectoryCollection.push(currentCompoundingNW);
+  const homeEquityCollection = [simHomeValue - simMortgageBalance];
 
   // --- 2. INFLOW ROUTING CONSTANTS (salary-growth-independent portions) ---
   const matchRate        = (state.employerMatchRate    ?? 100) / 100;
@@ -102,9 +125,15 @@ export function simulateWealth(state, deps) {
     const annualTrad401k   = annual401k * tradRatio;
     const annualRoth401k   = annual401k - annualTrad401k;
 
-    // Employer match on grown salary
+    // Employer match on grown salary, capped by the combined IRC §415(c) annual
+    // additions limit (employee non-catch-up deferrals + employer contributions).
+    // Catch-up dollars are exempt and stack on top of the cap.
     const effectiveDeferralForMatch = Math.min(deferralRate, matchCeiling);
-    const annualEmployerMatch       = grownGross * effectiveDeferralForMatch * matchRate;
+    let annualEmployerMatch         = grownGross * effectiveDeferralForMatch * matchRate;
+    const catchUpContribution   = Math.max(0, annual401k - MAX_401K_INDIVIDUAL);
+    const nonCatchUpDeferral    = annual401k - catchUpContribution;
+    const employerMatchRoom415c = Math.max(0, MAX_ANNUAL_ADDITIONS - nonCatchUpDeferral);
+    annualEmployerMatch          = Math.min(annualEmployerMatch, employerMatchRoom415c);
 
     // Take-home on grown salary:
     // Federal uses real bracket calc each year; FICA and state are linear so proportional scaling is exact.
@@ -114,9 +143,13 @@ export function simulateWealth(state, deps) {
       - (state.healthCostMonthly * 12) - STANDARD_DEDUCTION[filingStatus]
     );
     const grownFederal = computeFederalTax(grownTaxableIncome, filingStatus);
-    // FICA and state tax are linear — proportional scaling is exact
+    // FICA is recomputed directly each year (not scaled proportionally) because
+    // the 0.9% Additional Medicare surtax only applies above a fixed threshold —
+    // salary growth can cross that line partway through the simulation, and
+    // proportional scaling of a below-threshold base year would silently miss it.
+    // State tax is a flat rate, so proportional scaling of it is still exact.
     const grossGrowthFactor  = grownGross / (state.grossIncome || 1);
-    const grownFica          = (tax.monthlyFica     * 12) * grossGrowthFactor;
+    const grownFica          = computeAnnualFica(grownGross, filingStatus, tax.traditionalHsa + (state.healthCostMonthly * 12));
     const grownState         = (tax.monthlyStateTax * 12) * grossGrowthFactor;
     const grownTakehome      = grownGross - grownFederal - grownFica - grownState
                                - annual401k - tax.traditionalHsa
@@ -138,6 +171,17 @@ export function simulateWealth(state, deps) {
   simHsaPool       *= (1 + annualYield / 12); // Moved here cleanly
   simBrokeragePool *= (1 + annualYield / 12);  // Full yield during accumulation — gains deferred until sale
   simCashBuffer    *= (1 + CASH_BUFFER_YIELD / 12); 
+
+  // 1b. Home value appreciates; mortgage amortizes on a fixed level payment.
+  // This runs independent of the cashflow waterfall above — the mortgage payment
+  // is assumed to already be covered out of monthlyExpenses, so it isn't drawn
+  // from the investable pools here, just tracked for home equity purposes.
+  simHomeValue *= (1 + homeAppreciationMonthly);
+  if (simMortgageBalance > 0) {
+    const mortgageInterest = simMortgageBalance * mortgageMonthlyRate;
+    const mortgagePrincipal = Math.min(mortgageMonthlyPayment - mortgageInterest, simMortgageBalance);
+    simMortgageBalance -= Math.max(0, mortgagePrincipal);
+  }
 
   // 2. Inject dedicated monthly streams into correct buckets
   simPreTaxPool += monthlyPreTaxInflow;
@@ -213,7 +257,7 @@ export function simulateWealth(state, deps) {
         simDebt += (simDebt * monthlyDebtApr);
       }
 
-      currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool + simCashBuffer - simDebt;
+      currentCompoundingNW = simPreTaxPool + simRothPool + simBrokeragePool + simHsaPool + simCashBuffer - simDebt;
 
       if (!absoluteFiAchievedAge && currentCompoundingNW >= fiTargetNumber) {
         absoluteFiAchievedAge = activeTimelineAge;
@@ -232,12 +276,19 @@ if (!absoluteCoastAchievedAge &&
 
     labelsCollection.push('Age ' + activeTimelineAge);
     trajectoryCollection.push(currentCompoundingNW);
+    homeEquityCollection.push(simHomeValue - simMortgageBalance);
   }
 
   const terminalNetWorthResult = trajectoryCollection[trajectoryCollection.length - 1];
   const compoundingGrowthGain = terminalNetWorthResult - (state.retirement + state.brokerage + state.cash);
 
   // --- PHASE 2: RETIREMENT DRAWDOWN ---
+  // Snapshot home value/mortgage AT retirement before continuing to age them through
+  // drawdown below — simHomeValue/simMortgageBalance keep mutating past this point.
+  const homeValueAtRetirement = simHomeValue;
+  const mortgageBalanceAtRetirement = simMortgageBalance;
+  const homeEquityAtRetirement = simHomeValue - simMortgageBalance;
+
   let drawdownAge = targetHorizonAge;
   // At retirement, fold cash buffer into brokerage (it's all liquid non-retirement money)
   let drawdownPreTaxBucket    = simPreTaxPool;
@@ -331,6 +382,17 @@ if (!absoluteCoastAchievedAge &&
     drawdownBrokerageBucket *= (1 + drawdownBrokerageYield);  // Cap gains drag applied here at realization
     indexedAnnualSpendingRequirement *= (1 + DRAWDOWN_INFLATION_RATE);
 
+    // Home keeps appreciating and (if not already paid off) the mortgage keeps amortizing
+    // through retirement — tracked for the home-equity figure only, not drawn on for spending.
+    simHomeValue *= Math.pow(1 + homeAppreciationMonthly, 12);
+    if (simMortgageBalance > 0) {
+      for (let m = 0; m < 12 && simMortgageBalance > 0; m++) {
+        const mortgageInterest = simMortgageBalance * mortgageMonthlyRate;
+        const mortgagePrincipal = Math.min(mortgageMonthlyPayment - mortgageInterest, simMortgageBalance);
+        simMortgageBalance -= Math.max(0, mortgagePrincipal);
+      }
+    }
+
     drawdownAge++;
   }
 
@@ -343,6 +405,18 @@ if (!absoluteCoastAchievedAge &&
     absoluteCoastAchievedAge,
     targetHorizonAge,
     drawdownTimelineData,
+    // Home equity tracked as its own parallel series (not part of terminalNW/growthData,
+    // which stay liquid-investable-only since those feed the Monte Carlo starting
+    // balance and the "Portfolio" figures). Add growthData[i] + homeEquityData[i] for
+    // a true total-net-worth line matching the balance sheet's "True Net Worth".
+    homeEquityData: homeEquityCollection,
+    homeEquityAtRetirement,
+    homeValueAtRetirement,
+    mortgageBalanceAtRetirement,
+    // These continue tracking home value/mortgage payoff all the way to DRAWDOWN_END_AGE (90)
+    homeEquityAtEndOfHorizon: simHomeValue - simMortgageBalance,
+    homeValueAtEndOfHorizon: simHomeValue,
+    mortgageBalanceAtEndOfHorizon: simMortgageBalance,
   };
 }
 

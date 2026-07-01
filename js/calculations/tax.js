@@ -1,10 +1,31 @@
 import { 
-  MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63,
+  MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS,
   HSA_LIMITS, STANDARD_DEDUCTION,
   SOCIAL_SECURITY_RATE, SOCIAL_SECURITY_WAGE_BASE,
   MEDICARE_RATE, ADDITIONAL_MEDICARE_RATE, ADDITIONAL_MEDICARE_THRESHOLD,
 } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
+
+// Shared FICA formula (Social Security + Medicare + Additional Medicare surtax).
+// Exported so the multi-year wealth simulation can compute FICA correctly for
+// grown salaries instead of proportionally scaling a single base-year number
+// (proportional scaling breaks once income crosses the Additional Medicare
+// threshold, since that portion of the tax is not linear in gross income).
+//
+// preFicaExclusions: dollars excluded from the FICA wage base — i.e. pre-tax
+// HSA contributions and health insurance premiums run through a Section 125
+// cafeteria plan. These reduce wages for FICA purposes just like they do for
+// federal income tax. Traditional 401(k) deferrals are deliberately NOT
+// included here — elective retirement deferrals are still subject to FICA
+// even though they're excluded from federal taxable income.
+export function computeAnnualFica(gross, status, preFicaExclusions = 0) {
+  const ficaWageBase = Math.max(0, gross - preFicaExclusions);
+  const ssWages = Math.min(ficaWageBase, SOCIAL_SECURITY_WAGE_BASE);
+  const annualSocialSecurity = ssWages * SOCIAL_SECURITY_RATE;
+  const annualMedicare = ficaWageBase * MEDICARE_RATE
+    + Math.max(0, ficaWageBase - ADDITIONAL_MEDICARE_THRESHOLD[status]) * ADDITIONAL_MEDICARE_RATE;
+  return annualSocialSecurity + annualMedicare;
+}
 
 export function computeTax(state) {
   const gross = state.grossIncome;
@@ -46,15 +67,10 @@ export function computeTax(state) {
   // 6. Federal income tax on household taxable income
   const annualFederalTax = computeFederalTax(taxableIncome, status);
 
-  // 7. FICA — assessed on full gross (household income entered by user)
-  const ssWages = Math.min(gross, SOCIAL_SECURITY_WAGE_BASE);
-  const annualSocialSecurity = ssWages * SOCIAL_SECURITY_RATE;
-
-  // 8. Medicare (1.45% uncapped + 0.9% additional above $200k per-person threshold)
-  const annualMedicare = gross * MEDICARE_RATE
-    + Math.max(0, gross - ADDITIONAL_MEDICARE_THRESHOLD.single) * ADDITIONAL_MEDICARE_RATE;
-
-  const annualFica = annualSocialSecurity + annualMedicare;
+  // 7 & 8. FICA — Social Security (capped at wage base) + Medicare (1.45% uncapped
+  // + 0.9% additional above filing-status threshold: $200k single / $250k MFJ).
+  // Wage base excludes pre-tax HSA and health premium contributions (Section 125).
+  const annualFica = computeAnnualFica(gross, status, traditionalHsa + preTaxHealth);
 
   // 9. State income tax
   // No-income-tax states are zeroed here regardless of stateTaxRate input.
@@ -65,7 +81,17 @@ export function computeTax(state) {
   const matchRate    = (state.employerMatchRate    ?? 100) / 100;
   const matchCeiling = (state.employerMatchCeiling ?? 4)   / 100;
   const effectiveDeferralForMatch = Math.min(state.deferral401k / 100, matchCeiling);
-  const annualEmployerMatchDollars = gross * effectiveDeferralForMatch * matchRate;
+  let annualEmployerMatchDollars = gross * effectiveDeferralForMatch * matchRate;
+
+  // IRC §415(c) combined limit: employee (non-catch-up) deferrals + employer
+  // contributions can't exceed MAX_ANNUAL_ADDITIONS. Catch-up dollars are exempt
+  // and stack on top. If the match would push the total over the limit, the
+  // match itself is what gets trimmed (the employee's deferral election doesn't
+  // change; the employer simply can't contribute past the cap).
+  const catchUpContribution   = Math.max(0, total401kDeferral - MAX_401K_INDIVIDUAL);
+  const nonCatchUpDeferral    = total401kDeferral - catchUpContribution;
+  const employerMatchRoom415c = Math.max(0, MAX_ANNUAL_ADDITIONS - nonCatchUpDeferral);
+  annualEmployerMatchDollars   = Math.min(annualEmployerMatchDollars, employerMatchRoom415c);
 
   // 11. Monthly take-home
   const monthlyGross             = gross / 12;

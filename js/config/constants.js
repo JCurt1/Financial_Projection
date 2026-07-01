@@ -2,6 +2,13 @@
 export const MAX_401K_INDIVIDUAL = 24500;
 export const MAX_401K_CATCHUP_50 = 32500;    // Age 50–59 and 64+: +$8,000 catch-up
 export const MAX_401K_CATCHUP_60_63 = 35750; // Age 60–63: +$11,250 super catch-up (SECURE 2.0)
+// IRC §415(c): combined employee + employer annual additions limit to a single
+// defined-contribution plan. Catch-up contributions (age 50+) are exempt from
+// this cap — they stack on top of it, not inside it.
+// NOTE: this figure is an estimate scaled from the 2025 IRS limit ($70,000) and
+// has not been verified against the official 2026 Revenue Procedure — treat it
+// as directionally correct, not authoritative, until confirmed.
+export const MAX_ANNUAL_ADDITIONS = 72000;
 
 // HSA Contribution Limits (Triple Tax Advantaged) — 2026 IRS official
 export const HSA_LIMITS = {

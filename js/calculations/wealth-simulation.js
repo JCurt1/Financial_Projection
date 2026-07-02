@@ -57,6 +57,18 @@ export function simulateWealth(state, deps) {
   simCashBuffer -
   simDebt;
 
+  // Snapshot starting pool balances (post cash-buffer-overflow adjustment above) for the
+  // Monte Carlo engine, which replays the same contribution schedule under random yields
+  // instead of starting every trial from a single deterministic terminal number.
+  const mcInitialPreTax    = simPreTaxPool;
+  const mcInitialRoth      = simRothPool;
+  const mcInitialBrokerage = simBrokeragePool;
+  const mcInitialHsa       = simHsaPool;
+  const mcDeltaPreTaxByMonth    = [];
+  const mcDeltaRothByMonth      = [];
+  const mcDeltaBrokerageByMonth = [];
+  const mcDeltaHsaByMonth       = [];
+
   // --- Home value & mortgage amortization (tracked separately from liquid net worth) ---
   // Home equity is excluded from currentCompoundingNW/fiTargetNumber comparisons — standard
   // FIRE practice, since you can't spend down a primary residence without also housing yourself.
@@ -165,6 +177,14 @@ export function simulateWealth(state, deps) {
     for (let monthBlock = 0; monthBlock < 12; monthBlock++) {
   simulationMonthsOffset++;
 
+  // Track this month's net cash-flow contribution to each pool, separate from market
+  // growth, so the Monte Carlo engine can replay the identical dollar schedule under
+  // random yields instead of one shared deterministic path.
+  let mcDeltaPreTax    = monthlyPreTaxInflow;
+  let mcDeltaRoth      = monthlyRothInflow;
+  let mcDeltaHsa       = monthlyBrokerageHsaInflow;
+  let mcDeltaBrokerage = 0;
+
   // 1. Compound ALL four investment pools + cash buffer once together
   simPreTaxPool    *= (1 + annualYield / 12);
   simRothPool      *= (1 + annualYield / 12);
@@ -209,11 +229,13 @@ export function simulateWealth(state, deps) {
           // Any leftover after filling buffer: apply investment rate
           if (remainder > 0) {
             simBrokeragePool += remainder * investmentRate;
+            mcDeltaBrokerage += remainder * investmentRate;
             // The uninvested fraction (lifestyle creep / irregular spend) is simply not added
           }
         } else {
           // Buffer is full — apply investment rate to full surplus
           simBrokeragePool += grownSavingsMargin * investmentRate;
+          mcDeltaBrokerage += grownSavingsMargin * investmentRate;
         }
       } else if (grownSavingsMargin < 0) {
         // Budget deficit — draw from cash buffer first, then brokerage, then Roth, then pre-tax
@@ -229,6 +251,7 @@ export function simulateWealth(state, deps) {
 
         if (remainingDeficit < 0) {
           simBrokeragePool += remainingDeficit;
+          mcDeltaBrokerage += remainingDeficit;
           if (simBrokeragePool < 0) {
             remainingDeficit = simBrokeragePool;
             simBrokeragePool = 0;
@@ -239,6 +262,7 @@ export function simulateWealth(state, deps) {
 
         if (remainingDeficit < 0) {
           simRothPool += remainingDeficit;
+          mcDeltaRoth += remainingDeficit;
           if (simRothPool < 0) {
             remainingDeficit = simRothPool;
             simRothPool = 0;
@@ -249,6 +273,7 @@ export function simulateWealth(state, deps) {
 
         if (remainingDeficit < 0) {
           simPreTaxPool += remainingDeficit;
+          mcDeltaPreTax += remainingDeficit;
           if (simPreTaxPool < 0) simPreTaxPool = 0;
         }
       }
@@ -272,6 +297,11 @@ if (!absoluteCoastAchievedAge &&
     currentCompoundingNW >= coastFiRequiredThreshold) {
   absoluteCoastAchievedAge = activeTimelineAge;
 }
+
+  mcDeltaPreTaxByMonth.push(mcDeltaPreTax);
+  mcDeltaRothByMonth.push(mcDeltaRoth);
+  mcDeltaBrokerageByMonth.push(mcDeltaBrokerage);
+  mcDeltaHsaByMonth.push(mcDeltaHsa);
     }
 
     labelsCollection.push('Age ' + activeTimelineAge);
@@ -290,10 +320,13 @@ if (!absoluteCoastAchievedAge &&
   const homeEquityAtRetirement = simHomeValue - simMortgageBalance;
 
   let drawdownAge = targetHorizonAge;
-  // At retirement, fold cash buffer into brokerage (it's all liquid non-retirement money)
+  // At retirement, fold cash buffer AND remaining HSA balance into brokerage (all liquid,
+  // non-retirement-account money). NOTE: simHsaPool was previously dropped here entirely —
+  // it kept compounding through accumulation but then vanished from the retirement drawdown
+  // simulation instead of being spent down. Folding it into brokerage fixes that.
   let drawdownPreTaxBucket    = simPreTaxPool;
   let drawdownRothBucket      = simRothPool;
-  let drawdownBrokerageBucket = simBrokeragePool + simCashBuffer;
+  let drawdownBrokerageBucket = simBrokeragePool + simCashBuffer + simHsaPool;
 
   // Inflate expenses forward to retirement age as starting drawdown spending baseline
   const drawdownAccumYears    = targetHorizonAge - state.initialAge;
@@ -396,6 +429,20 @@ if (!absoluteCoastAchievedAge &&
     drawdownAge++;
   }
 
+  // Package the deterministic contribution schedule + starting balances for the Monte
+  // Carlo engine to replay under randomized yields (see runMonteCarloSimulation below).
+  const mcAccumulationSchedule = {
+    initialPreTax:    mcInitialPreTax,
+    initialRoth:      mcInitialRoth,
+    initialBrokerage: mcInitialBrokerage,
+    initialHsa:       mcInitialHsa,
+    deltaPreTaxByMonth:    mcDeltaPreTaxByMonth,
+    deltaRothByMonth:      mcDeltaRothByMonth,
+    deltaBrokerageByMonth: mcDeltaBrokerageByMonth,
+    deltaHsaByMonth:       mcDeltaHsaByMonth,
+    cashBufferAtRetirement: simCashBuffer,
+  };
+
   return {
     growthLabels: labelsCollection,
     growthData: trajectoryCollection,
@@ -405,6 +452,7 @@ if (!absoluteCoastAchievedAge &&
     absoluteCoastAchievedAge,
     targetHorizonAge,
     drawdownTimelineData,
+    mcAccumulationSchedule,
     // Home equity tracked as its own parallel series (not part of terminalNW/growthData,
     // which stay liquid-investable-only since those feed the Monte Carlo starting
     // balance and the "Portfolio" figures). Add growthData[i] + homeEquityData[i] for
@@ -430,6 +478,12 @@ function generateGaussianRandom(mean, standardDeviation) {
 }
 
 // --- CORE MONTE CARLO STRESS TEST ENGINE ---
+// NOTE: an in-progress upgrade to model accumulation-phase sequence-of-returns risk
+// (replaying the deltaPreTaxByMonth/etc. schedule under randomized yields instead of
+// starting every trial from one fixed terminalNW) is NOT yet correct — a sanity check
+// found the schedule replay diverges from the known-correct deterministic terminalNW,
+// so it's reverted here pending a real fix. simulateWealth() still builds and returns
+// mcAccumulationSchedule for whenever that's revisited; it's just unused for now.
 export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRatioAtRetirement = 0.5) {
   const iterations = 1000;
   const startAge = state.targetHorizonAge || 65;

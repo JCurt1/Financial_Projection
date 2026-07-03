@@ -46,7 +46,7 @@ export function computeAll(state) {
   const preTaxRatioAtRetirement = retirementSnapshot
     ? retirementSnapshot.preTax / (retirementSnapshot.preTax + retirementSnapshot.roth + retirementSnapshot.brokerage + 0.01)
     : 0.5;
-  const monteCarlo = runMonteCarloSimulation(enrichedState2, simulation.terminalNW, preTaxRatioAtRetirement);
+  const monteCarlo = runMonteCarloSimulation(enrichedState2, simulation.terminalNW, preTaxRatioAtRetirement, simulation.mcAccumulationSchedule);
   
   const homeEquity = state.homeValue - state.mortgage;
   const debtToAssetPct = balanceSheet.totalAssets > 0

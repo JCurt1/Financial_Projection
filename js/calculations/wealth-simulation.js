@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 import { computeAnnualFica } from './tax.js';
 
@@ -368,15 +368,30 @@ if (!absoluteCoastAchievedAge &&
     let rothPull      = netAnnualWithdrawal * rothShare;
     let brokeragePull = netAnnualWithdrawal * brokerageShare;
 
+    // --- Required Minimum Distributions (SECURE 2.0) ---
+    // The IRS forces a minimum pre-tax withdrawal starting at age 73 or 75 (birth-year
+    // dependent) regardless of spending need. If the RMD exceeds what this year's spending
+    // waterfall would have pulled from pre-tax anyway, the excess is still forced out —
+    // taxed as ordinary income — and reinvested into the brokerage bucket since it isn't spent.
+    const birthYear = new Date().getFullYear() - state.initialAge;
+    const rmdAge = rmdStartAge(birthYear);
+    const rmdDivisor = drawdownAge >= rmdAge ? rmdDivisorForAge(drawdownAge) : null;
+    const requiredMinimumDistribution = rmdDivisor ? drawdownPreTaxBucket / rmdDivisor : 0;
+    const rmdForcedExcess = Math.max(0, requiredMinimumDistribution - preTaxPull);
+    const totalPreTaxGrossWithdrawal = preTaxPull + rmdForcedExcess;
+
     // Tax gross-up on pre-tax withdrawals only — Roth and brokerage are tax-free at withdrawal
     // Subtract standard deduction first: first $16,100 (single) / $32,200 (married) is tax-free
     const retirementStatus = state.filingStatus === 'married' ? 'married' : 'single';
     const standardDed = retirementStatus === 'married' ? 32200 : 16100;
-    const taxablePreTaxPull = Math.max(0, preTaxPull - standardDed);
+    const taxablePreTaxPull = Math.max(0, totalPreTaxGrossWithdrawal - standardDed);
     const taxOnPreTax = computeFederalTax(taxablePreTaxPull, retirementStatus);
-    let netPreTaxDeduction    = preTaxPull + taxOnPreTax;
+    // Net-of-tax proceeds from the forced RMD excess (beyond what spending needed) get
+    // reinvested into the brokerage bucket rather than evaporating from net worth.
+    const rmdExcessNetOfTax = Math.max(0, rmdForcedExcess - (taxOnPreTax * (rmdForcedExcess / (totalPreTaxGrossWithdrawal || 1))));
+    let netPreTaxDeduction    = totalPreTaxGrossWithdrawal + taxOnPreTax;
     let netRothDeduction      = rothPull;
-    let netBrokerageDeduction = brokeragePull;
+    let netBrokerageDeduction = brokeragePull - rmdExcessNetOfTax;
 
     // Safety fallbacks if any bucket runs dry
     if (drawdownPreTaxBucket < netPreTaxDeduction) {
@@ -441,6 +456,10 @@ if (!absoluteCoastAchievedAge &&
     deltaBrokerageByMonth: mcDeltaBrokerageByMonth,
     deltaHsaByMonth:       mcDeltaHsaByMonth,
     cashBufferAtRetirement: simCashBuffer,
+    // Any consumer debt not yet paid off by retirement (rare — most plans clear it
+    // well before targetHorizonAge) is deterministic, not market-exposed, so it's
+    // carried as a flat subtraction rather than replayed.
+    debtAtRetirement: simDebt,
   };
 
   return {
@@ -477,73 +496,188 @@ function generateGaussianRandom(mean, standardDeviation) {
   return mean + standardNormal * standardDeviation;
 }
 
+// --- LOGNORMAL RETURN SAMPLER ---
+// Market returns compound multiplicatively, so they're better modeled as lognormal
+// than as a plain Gaussian arithmetic return. A raw Gaussian draw can (and with real
+// frequency, at 15% annual vol, does) produce returns below -100%, which is impossible —
+// you can't lose more than everything. Lognormal draws are bounded below at -100% and
+// naturally produce the right-skewed distribution real market returns show.
+//
+// Calibrated so the arithmetic mean of the resulting return equals `annualMean` (not the
+// log-mean) — i.e. E[gross factor] = 1 + annualMean — using the standard lognormal
+// correction mu = ln(1+annualMean) - 0.5*sigma^2. periodsPerYear lets the same function
+// serve monthly (accumulation replay) or annual (drawdown) sampling: splitting mean/vol
+// this way keeps 12 compounded monthly draws statistically equivalent to 1 annual draw.
+function sampleLognormalGrossFactor(annualMean, annualVol, periodsPerYear = 1) {
+  const muAnnual = Math.log(1 + annualMean) - 0.5 * annualVol * annualVol;
+  const muPeriod = muAnnual / periodsPerYear;
+  const sigmaPeriod = annualVol / Math.sqrt(periodsPerYear);
+  const logReturn = generateGaussianRandom(muPeriod, sigmaPeriod);
+  return Math.exp(logReturn);
+}
+
 // --- CORE MONTE CARLO STRESS TEST ENGINE ---
-// NOTE: an in-progress upgrade to model accumulation-phase sequence-of-returns risk
-// (replaying the deltaPreTaxByMonth/etc. schedule under randomized yields instead of
-// starting every trial from one fixed terminalNW) is NOT yet correct — a sanity check
-// found the schedule replay diverges from the known-correct deterministic terminalNW,
-// so it's reverted here pending a real fix. simulateWealth() still builds and returns
-// mcAccumulationSchedule for whenever that's revisited; it's just unused for now.
-export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRatioAtRetirement = 0.5) {
+// Two upgrades from the earlier version:
+//   1. Accumulation-phase sequence-of-returns risk is now modeled. Each of the 1000 trials
+//      replays the actual month-by-month contribution schedule (mcAccumulationSchedule from
+//      simulateWealth) under its own randomized monthly returns, instead of every trial
+//      starting from one fixed deterministic terminalNW. A bad market in year 2 of saving
+//      now produces a different retirement starting balance than a bad market in year 20 —
+//      that's real risk the old version silently ignored.
+//   2. Buckets (pre-tax / Roth / brokerage) are tracked separately all the way through, in
+//      both phases, instead of one blended "balance" with a fixed preTaxRatioAtRetirement
+//      assumed for the entire 25-year drawdown. This also makes RMD enforcement possible,
+//      since RMDs are a pre-tax-bucket-specific rule.
+//
+// Falls back to the old fixed-starting-balance behavior if mcAccumulationSchedule isn't
+// supplied (e.g. an older caller), so this stays backward compatible.
+export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRatioAtRetirement = 0.5, mcAccumulationSchedule = null) {
   const iterations = 1000;
   const startAge = state.targetHorizonAge || 65;
   const endAge = 90;
   const totalYears = endAge - startAge;
 
-  const expectedMeanReturn = (state.marketYield / 100);
-  const marketVolatility = 0.15;
+  const accumMeanReturn = (state.marketYield / 100);
+  const accumVolatility = 0.15;
+  // Drawdown phase uses the same conservative growth/vol assumption as the deterministic
+  // engine (DRAWDOWN_GROWTH_RATE) rather than the full accumulation-phase equity yield —
+  // matches the "de-risk in retirement" glide path the deterministic drawdown already
+  // assumes, so the two engines tell a consistent story.
+  const drawdownMeanReturn = DRAWDOWN_GROWTH_RATE;
+  const drawdownVolatility = DRAWDOWN_VOLATILITY;
+
   const initialAnnualSpending = state.monthlyExpenses * 12;
   const inflationRate = 0.03; // 3% — matches deterministic drawdown chart assumption
+  const capitalGainsDrag = (state.capitalGainsDrag ?? 10) / 100;
 
   // SS offset — same tiered benefit and start-age logic as the deterministic drawdown.
-  // Uses salary grown to retirement age, consistent with the accumulation phase fix.
   const mcYearsToRetirement  = Math.max(0, startAge - state.initialAge);
   const mcSalaryAtRetirement = state.grossIncome * Math.pow((1 + (state.annualSalaryGrowth ?? 0) / 100), mcYearsToRetirement);
   const mcSsAnnualBenefit    = estimateSsAnnualBenefit(mcSalaryAtRetirement);
   const mcSsStartAge         = Math.max(startAge, SS_FULL_RETIREMENT_AGE);
 
-  // Tax gross-up applies only to the pre-tax portion of withdrawals.
-  // Roth and brokerage withdrawals are tax-free; only traditional 401k/IRA draws are taxable.
+  const retirementFilingStatus = state.filingStatus === 'married' ? 'married' : 'single';
+  const mcStandardDed = retirementFilingStatus === 'married' ? 32200 : 16100;
+
+  // RMDs — same rule as the deterministic drawdown.
+  const birthYear = new Date().getFullYear() - state.initialAge;
+  const rmdAgeThreshold = rmdStartAge(birthYear);
+
+  const months = mcAccumulationSchedule?.deltaPreTaxByMonth?.length ?? 0;
 
   // Store full year-by-year paths for all runs: allPaths[year][run]
   const allPaths = Array.from({ length: totalYears + 1 }, () => []);
 
   for (let simRun = 0; simRun < iterations; simRun++) {
-    let balance = terminalAccumulatedNW;
+    // --- PHASE 1 (per-trial): replay accumulation under randomized monthly returns ---
+    let preTax, roth, brokerage;
+    if (mcAccumulationSchedule && months > 0) {
+      preTax    = mcAccumulationSchedule.initialPreTax;
+      roth      = mcAccumulationSchedule.initialRoth;
+      brokerage = mcAccumulationSchedule.initialBrokerage + (mcAccumulationSchedule.initialHsa || 0);
+
+      for (let m = 0; m < months; m++) {
+        const monthlyFactor = sampleLognormalGrossFactor(accumMeanReturn, accumVolatility, 12);
+        preTax    *= monthlyFactor;
+        roth      *= monthlyFactor;
+        brokerage *= monthlyFactor;
+
+        preTax    += mcAccumulationSchedule.deltaPreTaxByMonth[m];
+        roth      += mcAccumulationSchedule.deltaRothByMonth[m];
+        brokerage += mcAccumulationSchedule.deltaBrokerageByMonth[m] + (mcAccumulationSchedule.deltaHsaByMonth[m] || 0);
+      }
+
+      // Cash buffer isn't market-exposed (low-yield, safety money) — folded in as a flat,
+      // non-randomized addition, same treatment the deterministic engine gives it.
+      brokerage += mcAccumulationSchedule.cashBufferAtRetirement || 0;
+      // Any residual consumer debt still outstanding at retirement — rare, but if present
+      // it's a fixed subtraction rather than something to randomize.
+      brokerage -= mcAccumulationSchedule.debtAtRetirement || 0;
+    } else {
+      // Fallback: no schedule supplied — behave like the old fixed-starting-point model.
+      preTax    = terminalAccumulatedNW * preTaxRatioAtRetirement;
+      roth      = 0;
+      brokerage = terminalAccumulatedNW * (1 - preTaxRatioAtRetirement);
+    }
+
     let spending = initialAnnualSpending;
+    allPaths[0].push(Math.max(0, preTax + roth + brokerage));
 
-    allPaths[0].push(balance);
-
+    // --- PHASE 2 (per-trial): drawdown with RMDs and 3 separately-taxed buckets ---
     for (let year = 0; year < totalYears; year++) {
-      const randomYield = generateGaussianRandom(expectedMeanReturn, marketVolatility);
+      const combinedAssets = preTax + roth + brokerage;
 
-      // SS offset: subtract benefit from gross spending once SS kicks in.
-      // currentAge tracks which calendar year we're in relative to retirement start.
+      if (combinedAssets <= 0) {
+        preTax = 0; roth = 0; brokerage = 0;
+        allPaths[year + 1].push(0);
+        continue;
+      }
+
       const currentAge = startAge + year;
       const ssOffset   = currentAge >= mcSsStartAge ? mcSsAnnualBenefit : 0;
-      const netSpending = Math.max(0, spending - ssOffset);
+      const netAnnualWithdrawal = Math.max(0, spending - ssOffset);
 
-      // Only the pre-tax share of withdrawals needs to be grossed up for taxes.
-      // Roth + brokerage portions are tax-free at withdrawal.
-      // Use progressive marginal brackets + standard deduction — same logic as the
-      // deterministic drawdown in simulateWealth() — so MC success rates are consistent.
-      const retirementFilingStatus = state.filingStatus === 'married' ? 'married' : 'single';
-      const mcStandardDed = retirementFilingStatus === 'married' ? 32200 : 16100;
-      const preTaxPortion  = netSpending * preTaxRatioAtRetirement;
-      const taxFreePortion = netSpending * (1 - preTaxRatioAtRetirement);
-      const taxablePreTax  = Math.max(0, preTaxPortion - mcStandardDed);
-      const taxOnPreTax    = computeFederalTax(taxablePreTax, retirementFilingStatus);
-      const outflow        = preTaxPortion + taxOnPreTax + taxFreePortion;
+      const preTaxShare    = preTax / combinedAssets;
+      const rothShare      = roth / combinedAssets;
+      const brokerageShare = brokerage / combinedAssets;
 
-      balance = balance - outflow;
-      if (balance <= 0) {
-        balance = 0;
-      } else {
-        balance *= (1 + randomYield);
+      let preTaxPull    = netAnnualWithdrawal * preTaxShare;
+      let rothPull      = netAnnualWithdrawal * rothShare;
+      let brokeragePull = netAnnualWithdrawal * brokerageShare;
+
+      // RMD: forces a minimum pre-tax withdrawal starting at age 73/75, regardless of
+      // spending need. Excess beyond what was already being pulled is still taxed as
+      // ordinary income, then reinvested into brokerage.
+      const rmdDivisor = currentAge >= rmdAgeThreshold ? rmdDivisorForAge(currentAge) : null;
+      const requiredMinimumDistribution = rmdDivisor ? preTax / rmdDivisor : 0;
+      const rmdForcedExcess = Math.max(0, requiredMinimumDistribution - preTaxPull);
+      const totalPreTaxGrossWithdrawal = preTaxPull + rmdForcedExcess;
+
+      const taxablePreTax = Math.max(0, totalPreTaxGrossWithdrawal - mcStandardDed);
+      const taxOnPreTax   = computeFederalTax(taxablePreTax, retirementFilingStatus);
+      const rmdExcessNetOfTax = Math.max(0, rmdForcedExcess - (taxOnPreTax * (rmdForcedExcess / (totalPreTaxGrossWithdrawal || 1))));
+
+      let netPreTaxDeduction    = totalPreTaxGrossWithdrawal + taxOnPreTax;
+      let netRothDeduction      = rothPull;
+      let netBrokerageDeduction = brokeragePull - rmdExcessNetOfTax;
+
+      // Safety fallbacks if any bucket runs dry — same cascade as the deterministic engine.
+      if (preTax < netPreTaxDeduction) {
+        const overflow = netPreTaxDeduction - preTax;
+        netPreTaxDeduction = preTax;
+        const rothOverflow = overflow * (roth / (roth + brokerage + 0.01));
+        netRothDeduction      += rothOverflow;
+        netBrokerageDeduction += overflow - rothOverflow;
       }
+      if (roth < netRothDeduction) {
+        const overflow = netRothDeduction - roth;
+        netRothDeduction = roth;
+        netBrokerageDeduction += overflow;
+      }
+      if (brokerage < netBrokerageDeduction) {
+        const overflow = netBrokerageDeduction - brokerage;
+        netBrokerageDeduction = brokerage;
+        netPreTaxDeduction += overflow;
+      }
+
+      preTax    = Math.max(0, preTax    - netPreTaxDeduction);
+      roth      = Math.max(0, roth      - netRothDeduction);
+      brokerage = Math.max(0, brokerage - netBrokerageDeduction);
+
+      // Randomized growth — one market draw per year, shared across pre-tax/Roth (same
+      // underlying investments, different tax wrapper); brokerage additionally carries
+      // the capital-gains drag on realization, same as the deterministic drawdown.
+      const randomFactor         = sampleLognormalGrossFactor(drawdownMeanReturn, drawdownVolatility, 1);
+      const randomReturn         = randomFactor - 1;
+      const brokerageRandomFactor = 1 + randomReturn * (1 - capitalGainsDrag);
+
+      if (preTax > 0)    preTax    *= randomFactor;
+      if (roth > 0)      roth      *= randomFactor;
+      if (brokerage > 0) brokerage *= brokerageRandomFactor;
+
       spending *= (1 + inflationRate);
 
-      allPaths[year + 1].push(balance);
+      allPaths[year + 1].push(Math.max(0, preTax + roth + brokerage));
     }
   }
 

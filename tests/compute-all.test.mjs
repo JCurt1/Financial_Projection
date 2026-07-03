@@ -21,10 +21,11 @@ assertClose(result.fi.fiTargetNumber, 960000, 'FI target');
 assertClose(result.runway.emergencyMonths, 4500 / 3200, 'emergency months');
 
 // Savings margin: take-home minus expenses.
-// Default: FL (0% state tax), single, $50k gross, 15% 401k deferral (50/50 trad/roth split),
+// Default: FL (0% state tax), single, $50k gross, 15% 401k deferral
+// (futureTradSplitPercent: 100 — fully traditional/pre-tax, per state/defaults.js),
 // $150/mo health. Federal + FICA taxes computed from 2026 brackets.
-// Expected: ~-390 (deficit — confirmed by live calculation)
-assertClose(result.cashflow.savingsMargin, -390, 'savings margin', 2);
+// Expected: ~-341 (deficit — confirmed by live calculation)
+assertClose(result.cashflow.savingsMargin, -340.94, 'savings margin', 2);
 
 // With negative margin, debt cannot be paid off
 if (result.debt.canPayOff !== false) throw new Error('debt: default state should not be payable with negative margin');

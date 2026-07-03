@@ -40,6 +40,11 @@ export const HEALTH_TIERS = {
 };
 
 export const DRAWDOWN_GROWTH_RATE = 0.05;
+// Approximate volatility for a conservative post-retirement glide path (blended
+// stock/bond allocation) — lower than a full-equity accumulation portfolio's ~15%.
+// This is an assumption, not an empirically-fit figure; revisit if you model an
+// explicit stock/bond glide path instead of a flat blended rate.
+export const DRAWDOWN_VOLATILITY = 0.10;
 export const DRAWDOWN_INITIAL_WITHDRAWAL_RATE = 0.04;
 export const DRAWDOWN_INFLATION_RATE = 0.03; // 3% — matches Monte Carlo inflation assumption
 export const DRAWDOWN_END_AGE = 90;

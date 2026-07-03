@@ -2,17 +2,31 @@ import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAW
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 import { computeAnnualFica } from './tax.js';
 
+// --- AVERAGE-COST BASIS TRACKING ---
+// Applies a net cash flow to a taxable brokerage balance while keeping its cost basis
+// (the portion that's principal, not gain) accurate under average-cost accounting:
+//   - A contribution (flow > 0) adds dollar-for-dollar to both balance and basis — new
+//     money in isn't a gain yet.
+//   - A withdrawal/sale (flow < 0) removes the SAME fraction of basis as of balance —
+//     e.g. selling 10% of the account realizes 10% of the account's basis and 10% of
+//     its embedded gain, not a disproportionate chunk of either.
+// This replaces the old flat "capital gains drag %" applied to the whole balance/yield,
+// which taxed your own contributed principal as if it were a gain.
+function applyBrokerageFlow(balance, costBasis, flow) {
+  if (flow >= 0) {
+    return { balance: balance + flow, costBasis: costBasis + flow };
+  }
+  const sellFraction = balance > 0 ? Math.min(1, -flow / balance) : 0;
+  return { balance: balance + flow, costBasis: costBasis * (1 - sellFraction) };
+}
+
 export function simulateWealth(state, deps) {
   const { tax, cashflow, debt, runway, fi } = deps;
   const { fiTargetNumber, annualYield } = fi;
-  const capitalGainsDrag =
-  (state.capitalGainsDrag ?? 10) / 100;
-
-  // During accumulation, brokerage compounds at the full market yield.
-  // Capital gains tax is only owed on realized gains (i.e. when you sell),
-  // not annually. A buy-and-hold index investor defers tax until withdrawal.
-  // Cap gains drag is applied during the drawdown phase only (see below).
-  const drawdownBrokerageYield = DRAWDOWN_GROWTH_RATE * (1 - capitalGainsDrag);
+  // capitalGainsRate is the marginal tax rate (federal LTCG + NIIT + state) applied ONLY
+  // to the realized-gain portion of a brokerage withdrawal — not the whole yield anymore.
+  // See applyBrokerageFlow / cost-basis tracking below for how gain vs. principal is split.
+  const capitalGainsRate = (state.capitalGainsDrag ?? 10) / 100;
 
   const currentSimulationAge = state.initialAge;
   const targetHorizonAge = state.targetHorizonAge || 65;
@@ -37,6 +51,9 @@ export function simulateWealth(state, deps) {
 
   // Taxable Brokerage — existing brokerage balance (market yield)
   let simBrokeragePool = state.brokerage;
+  // Cost basis: the portion of simBrokeragePool that's principal, not gain. Falls back to
+  // the full balance (assumes zero embedded gain) if the user hasn't entered a real basis.
+  let simBrokerageCostBasis = state.brokerageCostBasis ?? state.brokerage;
   let simHsaPool = state.hsaBalance || 0;
   // Cash Buffer — liquid savings/HYSA (low yield, capped target)
   // Seed with existing cash balance; target cap = cashBufferMonths x monthly expenses
@@ -44,6 +61,8 @@ export function simulateWealth(state, deps) {
   let simCashBuffer = Math.min(state.cash, cashBufferTarget);
   // Any cash above the buffer target starts in brokerage
   simBrokeragePool += Math.max(0, state.cash - cashBufferTarget);
+  // Cash rolled into brokerage is pure principal — no embedded gain — so it's basis too.
+  simBrokerageCostBasis += Math.max(0, state.cash - cashBufferTarget);
 
   // Investment rate: fraction of surplus actually deployed to market (vs lost to lifestyle/irregular spend)
   const investmentRate = Math.min(1, Math.max(0, (state.investmentRate ?? 80) / 100));
@@ -63,6 +82,7 @@ export function simulateWealth(state, deps) {
   const mcInitialPreTax    = simPreTaxPool;
   const mcInitialRoth      = simRothPool;
   const mcInitialBrokerage = simBrokeragePool;
+  const mcInitialBrokerageCostBasis = simBrokerageCostBasis;
   const mcInitialHsa       = simHsaPool;
   const mcDeltaPreTaxByMonth    = [];
   const mcDeltaRothByMonth      = [];
@@ -228,14 +248,18 @@ export function simulateWealth(state, deps) {
           const remainder = grownSavingsMargin - toBuffer;
           // Any leftover after filling buffer: apply investment rate
           if (remainder > 0) {
-            simBrokeragePool += remainder * investmentRate;
-            mcDeltaBrokerage += remainder * investmentRate;
+            const brokerageFlow = remainder * investmentRate;
+            ({ balance: simBrokeragePool, costBasis: simBrokerageCostBasis } =
+              applyBrokerageFlow(simBrokeragePool, simBrokerageCostBasis, brokerageFlow));
+            mcDeltaBrokerage += brokerageFlow;
             // The uninvested fraction (lifestyle creep / irregular spend) is simply not added
           }
         } else {
           // Buffer is full — apply investment rate to full surplus
-          simBrokeragePool += grownSavingsMargin * investmentRate;
-          mcDeltaBrokerage += grownSavingsMargin * investmentRate;
+          const brokerageFlow = grownSavingsMargin * investmentRate;
+          ({ balance: simBrokeragePool, costBasis: simBrokerageCostBasis } =
+            applyBrokerageFlow(simBrokeragePool, simBrokerageCostBasis, brokerageFlow));
+          mcDeltaBrokerage += brokerageFlow;
         }
       } else if (grownSavingsMargin < 0) {
         // Budget deficit — draw from cash buffer first, then brokerage, then Roth, then pre-tax
@@ -250,8 +274,10 @@ export function simulateWealth(state, deps) {
         }
 
         if (remainingDeficit < 0) {
-          simBrokeragePool += remainingDeficit;
-          mcDeltaBrokerage += remainingDeficit;
+          const brokerageFlow = remainingDeficit;
+          ({ balance: simBrokeragePool, costBasis: simBrokerageCostBasis } =
+            applyBrokerageFlow(simBrokeragePool, simBrokerageCostBasis, brokerageFlow));
+          mcDeltaBrokerage += brokerageFlow;
           if (simBrokeragePool < 0) {
             remainingDeficit = simBrokeragePool;
             simBrokeragePool = 0;
@@ -327,6 +353,12 @@ if (!absoluteCoastAchievedAge &&
   let drawdownPreTaxBucket    = simPreTaxPool;
   let drawdownRothBucket      = simRothPool;
   let drawdownBrokerageBucket = simBrokeragePool + simCashBuffer + simHsaPool;
+  // Cash buffer and HSA are pure principal when they land here — no embedded gain — so
+  // they add straight to cost basis too (a slight simplification for HSA specifically:
+  // real HSA growth is tax-free if spent on qualified medical expenses, which this model
+  // doesn't track explicitly, so treating it as ordinary post-merge basis is a reasonable
+  // stand-in rather than a further layer of medical-expense modeling).
+  let drawdownBrokerageCostBasis = simBrokerageCostBasis + simCashBuffer + simHsaPool;
 
   // Inflate expenses forward to retirement age as starting drawdown spending baseline
   const drawdownAccumYears    = targetHorizonAge - state.initialAge;
@@ -366,7 +398,22 @@ if (!absoluteCoastAchievedAge &&
 
     let preTaxPull    = netAnnualWithdrawal * preTaxShare;
     let rothPull      = netAnnualWithdrawal * rothShare;
-    let brokeragePull = netAnnualWithdrawal * brokerageShare;
+    const brokerageNetTarget = netAnnualWithdrawal * brokerageShare;
+
+    // --- Capital gains: tax only the realized-gain portion, using real cost basis ---
+    // gainFraction is the share of the CURRENT balance that's unrealized gain (average-cost
+    // method — selling X% of the account realizes X% of its basis and X% of its gain, not
+    // a disproportionate share of either). Only that gain fraction of what's sold is taxed
+    // at the derived LTCG+NIIT+state rate; the rest is just your own principal coming back.
+    const brokerageGainFraction = drawdownBrokerageBucket > 0
+      ? Math.max(0, 1 - (drawdownBrokerageCostBasis / drawdownBrokerageBucket))
+      : 0;
+    const brokerageTaxDrag = brokerageGainFraction * capitalGainsRate;
+    // Gross up the NET target into a gross sale amount: sell enough that, after tax on
+    // just the gain portion of the sale, brokerageNetTarget dollars are left to spend.
+    let brokeragePull = brokerageTaxDrag < 1
+      ? brokerageNetTarget / (1 - brokerageTaxDrag)
+      : brokerageNetTarget;
 
     // --- Required Minimum Distributions (SECURE 2.0) ---
     // The IRS forces a minimum pre-tax withdrawal starting at age 73 or 75 (birth-year
@@ -380,7 +427,8 @@ if (!absoluteCoastAchievedAge &&
     const rmdForcedExcess = Math.max(0, requiredMinimumDistribution - preTaxPull);
     const totalPreTaxGrossWithdrawal = preTaxPull + rmdForcedExcess;
 
-    // Tax gross-up on pre-tax withdrawals only — Roth and brokerage are tax-free at withdrawal
+    // Tax gross-up on pre-tax withdrawals only — Roth is tax-free at withdrawal, brokerage
+    // is handled separately above via cost-basis-aware capital gains.
     // Subtract standard deduction first: first $16,100 (single) / $32,200 (married) is tax-free
     const retirementStatus = state.filingStatus === 'married' ? 'married' : 'single';
     const standardDed = retirementStatus === 'married' ? 32200 : 16100;
@@ -415,7 +463,12 @@ if (!absoluteCoastAchievedAge &&
 
     drawdownPreTaxBucket    = Math.max(0, drawdownPreTaxBucket    - netPreTaxDeduction);
     drawdownRothBucket      = Math.max(0, drawdownRothBucket      - netRothDeduction);
-    drawdownBrokerageBucket = Math.max(0, drawdownBrokerageBucket - netBrokerageDeduction);
+    // Cost basis moves with the final (post-fallback) net flow: a net removal sells that
+    // fraction of basis (average-cost); a net addition (e.g. RMD reinvestment exceeding
+    // the planned brokerage pull) is fresh principal, added to basis dollar-for-dollar.
+    ({ balance: drawdownBrokerageBucket, costBasis: drawdownBrokerageCostBasis } =
+      applyBrokerageFlow(drawdownBrokerageBucket, drawdownBrokerageCostBasis, -netBrokerageDeduction));
+    drawdownBrokerageBucket = Math.max(0, drawdownBrokerageBucket);
 
     drawdownTimelineData.push({
       age:        drawdownAge,
@@ -427,7 +480,9 @@ if (!absoluteCoastAchievedAge &&
 
     drawdownPreTaxBucket    *= (1 + DRAWDOWN_GROWTH_RATE);
     drawdownRothBucket      *= (1 + DRAWDOWN_GROWTH_RATE);
-    drawdownBrokerageBucket *= (1 + drawdownBrokerageYield);  // Cap gains drag applied here at realization
+    // Brokerage now compounds at the FULL growth rate — tax is only owed on realized gains
+    // at withdrawal (handled above via cost basis), not annually on unrealized appreciation.
+    drawdownBrokerageBucket *= (1 + DRAWDOWN_GROWTH_RATE);
     indexedAnnualSpendingRequirement *= (1 + DRAWDOWN_INFLATION_RATE);
 
     // Home keeps appreciating and (if not already paid off) the mortgage keeps amortizing
@@ -450,6 +505,7 @@ if (!absoluteCoastAchievedAge &&
     initialPreTax:    mcInitialPreTax,
     initialRoth:      mcInitialRoth,
     initialBrokerage: mcInitialBrokerage,
+    initialBrokerageCostBasis: mcInitialBrokerageCostBasis,
     initialHsa:       mcInitialHsa,
     deltaPreTaxByMonth:    mcDeltaPreTaxByMonth,
     deltaRothByMonth:      mcDeltaRothByMonth,
@@ -548,7 +604,7 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
 
   const initialAnnualSpending = state.monthlyExpenses * 12;
   const inflationRate = 0.03; // 3% — matches deterministic drawdown chart assumption
-  const capitalGainsDrag = (state.capitalGainsDrag ?? 10) / 100;
+  const capitalGainsRate = (state.capitalGainsDrag ?? 10) / 100;
 
   // SS offset — same tiered benefit and start-age logic as the deterministic drawdown.
   const mcYearsToRetirement  = Math.max(0, startAge - state.initialAge);
@@ -570,11 +626,16 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
 
   for (let simRun = 0; simRun < iterations; simRun++) {
     // --- PHASE 1 (per-trial): replay accumulation under randomized monthly returns ---
-    let preTax, roth, brokerage;
+    let preTax, roth, brokerage, brokerageCostBasis;
     if (mcAccumulationSchedule && months > 0) {
       preTax    = mcAccumulationSchedule.initialPreTax;
       roth      = mcAccumulationSchedule.initialRoth;
       brokerage = mcAccumulationSchedule.initialBrokerage + (mcAccumulationSchedule.initialHsa || 0);
+      // HSA is folded into brokerage at the same rate/timing as brokerage itself, so its
+      // starting balance is treated as basis too (see deterministic engine's identical
+      // treatment and the medical-expense caveat noted there).
+      brokerageCostBasis = (mcAccumulationSchedule.initialBrokerageCostBasis ?? mcAccumulationSchedule.initialBrokerage)
+        + (mcAccumulationSchedule.initialHsa || 0);
 
       for (let m = 0; m < months; m++) {
         const monthlyFactor = sampleLognormalGrossFactor(accumMeanReturn, accumVolatility, 12);
@@ -582,33 +643,39 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
         roth      *= monthlyFactor;
         brokerage *= monthlyFactor;
 
-        preTax    += mcAccumulationSchedule.deltaPreTaxByMonth[m];
-        roth      += mcAccumulationSchedule.deltaRothByMonth[m];
-        brokerage += mcAccumulationSchedule.deltaBrokerageByMonth[m] + (mcAccumulationSchedule.deltaHsaByMonth[m] || 0);
+        preTax += mcAccumulationSchedule.deltaPreTaxByMonth[m];
+        roth   += mcAccumulationSchedule.deltaRothByMonth[m];
+        const brokerageFlow = mcAccumulationSchedule.deltaBrokerageByMonth[m] + (mcAccumulationSchedule.deltaHsaByMonth[m] || 0);
+        ({ balance: brokerage, costBasis: brokerageCostBasis } = applyBrokerageFlow(brokerage, brokerageCostBasis, brokerageFlow));
       }
 
       // Cash buffer isn't market-exposed (low-yield, safety money) — folded in as a flat,
-      // non-randomized addition, same treatment the deterministic engine gives it.
-      brokerage += mcAccumulationSchedule.cashBufferAtRetirement || 0;
+      // non-randomized addition, same treatment the deterministic engine gives it. It's
+      // pure principal, so it's basis too.
+      brokerage           += mcAccumulationSchedule.cashBufferAtRetirement || 0;
+      brokerageCostBasis  += mcAccumulationSchedule.cashBufferAtRetirement || 0;
       // Any residual consumer debt still outstanding at retirement — rare, but if present
       // it's a fixed subtraction rather than something to randomize.
       brokerage -= mcAccumulationSchedule.debtAtRetirement || 0;
     } else {
       // Fallback: no schedule supplied — behave like the old fixed-starting-point model.
+      // No basis information available in this fallback path, so assume zero embedded
+      // gain (matches the same "no data, assume none" default used elsewhere).
       preTax    = terminalAccumulatedNW * preTaxRatioAtRetirement;
       roth      = 0;
       brokerage = terminalAccumulatedNW * (1 - preTaxRatioAtRetirement);
+      brokerageCostBasis = brokerage;
     }
 
     let spending = initialAnnualSpending;
     allPaths[0].push(Math.max(0, preTax + roth + brokerage));
 
-    // --- PHASE 2 (per-trial): drawdown with RMDs and 3 separately-taxed buckets ---
+    // --- PHASE 2 (per-trial): drawdown with RMDs, cost-basis-aware cap gains, 3 buckets ---
     for (let year = 0; year < totalYears; year++) {
       const combinedAssets = preTax + roth + brokerage;
 
       if (combinedAssets <= 0) {
-        preTax = 0; roth = 0; brokerage = 0;
+        preTax = 0; roth = 0; brokerage = 0; brokerageCostBasis = 0;
         allPaths[year + 1].push(0);
         continue;
       }
@@ -623,7 +690,16 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
 
       let preTaxPull    = netAnnualWithdrawal * preTaxShare;
       let rothPull      = netAnnualWithdrawal * rothShare;
-      let brokeragePull = netAnnualWithdrawal * brokerageShare;
+      const brokerageNetTarget = netAnnualWithdrawal * brokerageShare;
+
+      // Cost-basis-aware capital gains: tax only the realized-gain portion of the sale.
+      const brokerageGainFraction = brokerage > 0
+        ? Math.max(0, 1 - (brokerageCostBasis / brokerage))
+        : 0;
+      const brokerageTaxDrag = brokerageGainFraction * capitalGainsRate;
+      let brokeragePull = brokerageTaxDrag < 1
+        ? brokerageNetTarget / (1 - brokerageTaxDrag)
+        : brokerageNetTarget;
 
       // RMD: forces a minimum pre-tax withdrawal starting at age 73/75, regardless of
       // spending need. Excess beyond what was already being pulled is still taxed as
@@ -660,20 +736,21 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
         netPreTaxDeduction += overflow;
       }
 
-      preTax    = Math.max(0, preTax    - netPreTaxDeduction);
-      roth      = Math.max(0, roth      - netRothDeduction);
-      brokerage = Math.max(0, brokerage - netBrokerageDeduction);
+      preTax = Math.max(0, preTax - netPreTaxDeduction);
+      roth   = Math.max(0, roth   - netRothDeduction);
+      ({ balance: brokerage, costBasis: brokerageCostBasis } =
+        applyBrokerageFlow(brokerage, brokerageCostBasis, -netBrokerageDeduction));
+      brokerage = Math.max(0, brokerage);
 
       // Randomized growth — one market draw per year, shared across pre-tax/Roth (same
-      // underlying investments, different tax wrapper); brokerage additionally carries
-      // the capital-gains drag on realization, same as the deterministic drawdown.
-      const randomFactor         = sampleLognormalGrossFactor(drawdownMeanReturn, drawdownVolatility, 1);
-      const randomReturn         = randomFactor - 1;
-      const brokerageRandomFactor = 1 + randomReturn * (1 - capitalGainsDrag);
+      // underlying investments, different tax wrapper). Brokerage compounds at the full
+      // rate now — tax is only owed on realized gains at withdrawal (handled above via
+      // cost basis), not annually on unrealized appreciation.
+      const randomFactor = sampleLognormalGrossFactor(drawdownMeanReturn, drawdownVolatility, 1);
 
       if (preTax > 0)    preTax    *= randomFactor;
       if (roth > 0)      roth      *= randomFactor;
-      if (brokerage > 0) brokerage *= brokerageRandomFactor;
+      if (brokerage > 0) brokerage *= randomFactor;
 
       spending *= (1 + inflationRate);
 

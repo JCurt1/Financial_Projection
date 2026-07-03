@@ -32,12 +32,12 @@ export const DEFAULT_STATE = {
   // Decoupled tax allocation split defaults (Percentages)
   currentTradSplitPercent: 100, // Existing nest egg defaults to 100% Traditional pre-tax
   futureTradSplitPercent: 100,  // Future paychecks default to 100% traditional (pre-tax)
- 
+
   // State & payroll tax
   stateTaxRate: 0,
   stateCode: 'FL',              // State income tax rate (%), default 0 — user sets their state
- 
- 
+
+
   // Retirement tax & investment drag assumptions
   // These are used in projections and Monte Carlo but not yet exposed in the UI.
   // retirementTaxRate: effective tax rate applied to traditional 401k/IRA withdrawals in retirement (%)

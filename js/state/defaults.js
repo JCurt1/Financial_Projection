@@ -3,6 +3,13 @@ export const DEFAULT_STATE = {
   retirement: 22000,
   homeValue: 0,
   brokerage: 8500,
+  // brokerageCostBasis: your actual investment (basis) in the brokerage balance above —
+  // the part that ISN'T a capital gain. Defaults to matching brokerage (assumes zero
+  // embedded gain yet) since we can't know your real basis without you telling us.
+  // Override this with your real cost basis for accurate capital-gains tax projections;
+  // leaving it equal to `brokerage` is optimistic (assumes no tax owed on withdrawal
+  // until you've contributed past this amount).
+  brokerageCostBasis: 8500,
   consumerDebt: 17000,
   mortgage: 0,
   mortgageRate: 6.5,            // % — annual mortgage interest rate, used to amortize the balance forward
@@ -25,12 +32,12 @@ export const DEFAULT_STATE = {
   // Decoupled tax allocation split defaults (Percentages)
   currentTradSplitPercent: 100, // Existing nest egg defaults to 100% Traditional pre-tax
   futureTradSplitPercent: 100,  // Future paychecks default to 100% traditional (pre-tax)
-
+ 
   // State & payroll tax
   stateTaxRate: 0,
   stateCode: 'FL',              // State income tax rate (%), default 0 — user sets their state
-
-
+ 
+ 
   // Retirement tax & investment drag assumptions
   // These are used in projections and Monte Carlo but not yet exposed in the UI.
   // retirementTaxRate: effective tax rate applied to traditional 401k/IRA withdrawals in retirement (%)

@@ -32,7 +32,7 @@ function seedDOMFromState(s) {
   const setFmt = (id, val) => { const el = document.getElementById(id); if (el) el.value = Number(val).toLocaleString('en-US'); };
 
   // Balance sheet cards
-  ['cash','retirement','homeValue','brokerage','consumerDebt','mortgage'].forEach(key => {
+  ['cash','retirement','homeValue','brokerage','brokerageCostBasis','consumerDebt','mortgage'].forEach(key => {
     const card = document.querySelector(`[data-key="${key}"] .card-input`);
     if (card) card.value = Number(s[key]).toLocaleString('en-US');
   });

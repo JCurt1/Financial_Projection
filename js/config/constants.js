@@ -73,6 +73,37 @@ export function estimateSsAnnualBenefit(grossIncome) {
 
 export const SS_FULL_RETIREMENT_AGE = 67;
 
+// --- Required Minimum Distributions (RMDs) ---
+// SECURE 2.0 Act RMD starting age depends on birth year:
+//   born 1951–1959 → age 73
+//   born 1960 or later → age 75
+// Source: IRS Notice 2023-54 / SECURE 2.0 Act §107. This is a structural rule
+// (not an annually-indexed dollar figure like a tax bracket), so it doesn't need
+// yearly upkeep — but re-verify if Congress changes RMD ages again.
+export function rmdStartAge(birthYear) {
+  return birthYear <= 1959 ? 73 : 75;
+}
+
+// IRS Uniform Lifetime Table III (26 CFR 1.401(a)(9)-9), in effect since 2022.
+// Used by the vast majority of retirees (i.e. not the minority whose sole
+// beneficiary is a spouse >10 years younger, who instead use Table II).
+// RMD = prior year-end account balance / divisor for the owner's age that year.
+export const RMD_DIVISORS = {
+  73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0, 79: 21.1,
+  80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8, 85: 16.0, 86: 15.2,
+  87: 14.4, 88: 13.7, 89: 12.9, 90: 12.2, 91: 11.5, 92: 10.8, 93: 10.1,
+  94: 9.5,  95: 8.9,  96: 8.4,  97: 7.8,  98: 7.3,  99: 6.8,  100: 6.4,
+};
+
+// Returns the RMD divisor for a given age, clamping to the table's bounds
+// (the table technically continues past 100, but this projection horizon
+// ends at DRAWDOWN_END_AGE / MC endAge = 90, so 100 is a safe ceiling).
+export function rmdDivisorForAge(age) {
+  if (age < 73) return null;
+  const clampedAge = Math.min(age, 100);
+  return RMD_DIVISORS[clampedAge] ?? RMD_DIVISORS[100];
+}
+
 export const STANDARD_DEDUCTION = {
   single: 16100,
   married: 32200,

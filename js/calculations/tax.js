@@ -3,6 +3,7 @@ import {
   HSA_LIMITS, STANDARD_DEDUCTION,
   SOCIAL_SECURITY_RATE, SOCIAL_SECURITY_WAGE_BASE,
   MEDICARE_RATE, ADDITIONAL_MEDICARE_RATE, ADDITIONAL_MEDICARE_THRESHOLD,
+  getStateTaxRate,
 } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 
@@ -74,7 +75,7 @@ export function computeTax(state) {
 
   // 9. State income tax
   // No-income-tax states are zeroed here regardless of stateTaxRate input.
-  const stateTaxRate=['FL','TX','TN','WA','NV','AK','SD','WY','NH'].includes(state.stateCode)?0:(state.stateTaxRate??0)/100;
+  const stateTaxRate = getStateTaxRate(state);
   const annualStateTax = gross * stateTaxRate;
 
   // 10. Employer match: matchRate% on contributions up to matchCeiling% of salary

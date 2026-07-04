@@ -266,32 +266,40 @@ export function simulateWealth(state, deps) {
 
         if (remainingDeficit < 0) {
           const brokerageFlow = remainingDeficit;
+          const preFlowBrokerage = simBrokeragePool;
           ({ balance: simBrokeragePool, costBasis: simBrokerageCostBasis } =
             applyBrokerageFlow(simBrokeragePool, simBrokerageCostBasis, brokerageFlow));
-          mcDeltaBrokerage += brokerageFlow;
           if (simBrokeragePool < 0) {
             remainingDeficit = simBrokeragePool;
             simBrokeragePool = 0;
           } else {
             remainingDeficit = 0;
           }
+          // Record only the REALIZED (post-clamp) change, not the full requested flow —
+          // otherwise the MC schedule replay overdraws this bucket past zero whenever a
+          // deficit exceeds what's actually available, and that error compounds every
+          // subsequent month (confirmed: produced a -$262k phantom brokerage balance in
+          // a persistent-deficit test scenario before this fix).
+          mcDeltaBrokerage += (simBrokeragePool - preFlowBrokerage);
         }
 
         if (remainingDeficit < 0) {
+          const preFlowRoth = simRothPool;
           simRothPool += remainingDeficit;
-          mcDeltaRoth += remainingDeficit;
           if (simRothPool < 0) {
             remainingDeficit = simRothPool;
             simRothPool = 0;
           } else {
             remainingDeficit = 0;
           }
+          mcDeltaRoth += (simRothPool - preFlowRoth);
         }
 
         if (remainingDeficit < 0) {
+          const preFlowPreTax = simPreTaxPool;
           simPreTaxPool += remainingDeficit;
-          mcDeltaPreTax += remainingDeficit;
           if (simPreTaxPool < 0) simPreTaxPool = 0;
+          mcDeltaPreTax += (simPreTaxPool - preFlowPreTax);
         }
       }
 

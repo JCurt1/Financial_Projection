@@ -658,6 +658,19 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
         roth   += mcAccumulationSchedule.deltaRothByMonth[m];
         const brokerageFlow = mcAccumulationSchedule.deltaBrokerageByMonth[m] + (mcAccumulationSchedule.deltaHsaByMonth[m] || 0);
         ({ balance: brokerage, costBasis: brokerageCostBasis } = applyBrokerageFlow(brokerage, brokerageCostBasis, brokerageFlow));
+
+        // The delta schedule is a FIXED dollar-amount path computed once from the
+        // deterministic (expected-return) run. It's exactly right for contributions
+        // (a fixed % of salary doesn't depend on market luck), but a deficit-withdrawal
+        // month can still overdraw a bucket in an unlucky trial whose actual balance,
+        // after a run of poor random returns, is lower than the deterministic path's was
+        // at that same point — even though the deterministic schedule itself never
+        // overdraws (verified separately by the zero-volatility replay check). Floor each
+        // bucket at zero here, same as the deterministic engine does, rather than letting
+        // an impossible negative balance persist and keep compounding.
+        if (preTax < 0)    { preTax = 0; }
+        if (roth < 0)      { roth = 0; }
+        if (brokerage < 0) { brokerage = 0; brokerageCostBasis = 0; }
       }
 
       // Cash buffer isn't market-exposed (low-yield, safety money) — folded in as a flat,

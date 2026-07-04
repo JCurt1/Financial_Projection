@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge, getStateTaxRate, ssTaxableFraction } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 import { computeAnnualFica } from './tax.js';
 
@@ -414,13 +414,28 @@ if (!absoluteCoastAchievedAge &&
     const rmdForcedExcess = Math.max(0, requiredMinimumDistribution - preTaxPull);
     const totalPreTaxGrossWithdrawal = preTaxPull + rmdForcedExcess;
 
-    // Tax gross-up on pre-tax withdrawals only — Roth is tax-free at withdrawal, brokerage
-    // is handled separately above via cost-basis-aware capital gains.
-    // Subtract standard deduction first: first $16,100 (single) / $32,200 (married) is tax-free
+    // Tax on pre-tax withdrawals — Roth is tax-free at withdrawal, brokerage is handled
+    // separately above via cost-basis-aware capital gains.
     const retirementStatus = state.filingStatus === 'married' ? 'married' : 'single';
     const standardDed = retirementStatus === 'married' ? 32200 : 16100;
-    const taxablePreTaxPull = Math.max(0, totalPreTaxGrossWithdrawal - standardDed);
-    const taxOnPreTax = computeFederalTax(taxablePreTaxPull, retirementStatus);
+
+    // Social Security taxability: federal law taxes up to 85% of SS based on a combined-
+    // income test (portfolio withdrawal income + 50% of the SS benefit). Previously SS was
+    // treated as entirely tax-free, which understates federal tax in every year SS is drawn.
+    const ssTaxableFrac = ssOffset > 0 ? ssTaxableFraction(totalPreTaxGrossWithdrawal, ssOffset, retirementStatus) : 0;
+    const taxableSsIncome = ssOffset * ssTaxableFrac;
+
+    // Subtract standard deduction first: first $16,100 (single) / $32,200 (married) is tax-free
+    const federalTaxableIncome = Math.max(0, (totalPreTaxGrossWithdrawal + taxableSsIncome) - standardDed);
+    const federalTaxOnWithdrawal = computeFederalTax(federalTaxableIncome, retirementStatus);
+
+    // State tax — previously missing entirely from retirement withdrawals (federal-only).
+    // Applied only to the portfolio-withdrawal portion, not the SS benefit — most states
+    // with an income tax (including Michigan, 4.25% flat) exempt SS from state tax outright.
+    const stateRate = getStateTaxRate(state);
+    const stateTaxOnWithdrawal = totalPreTaxGrossWithdrawal * stateRate;
+
+    const taxOnPreTax = federalTaxOnWithdrawal + stateTaxOnWithdrawal;
     // Net-of-tax proceeds from the forced RMD excess (beyond what spending needed) get
     // reinvested into the brokerage bucket rather than evaporating from net worth.
     const rmdExcessNetOfTax = Math.max(0, rmdForcedExcess - (taxOnPreTax * (rmdForcedExcess / (totalPreTaxGrossWithdrawal || 1))));
@@ -694,8 +709,14 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
       const rmdForcedExcess = Math.max(0, requiredMinimumDistribution - preTaxPull);
       const totalPreTaxGrossWithdrawal = preTaxPull + rmdForcedExcess;
 
-      const taxablePreTax = Math.max(0, totalPreTaxGrossWithdrawal - mcStandardDed);
-      const taxOnPreTax   = computeFederalTax(taxablePreTax, retirementFilingStatus);
+      // Social Security taxability + state tax — same treatment as the deterministic
+      // drawdown (previously missing here too: federal-only tax, SS treated as tax-free).
+      const mcSsTaxableFrac = ssOffset > 0 ? ssTaxableFraction(totalPreTaxGrossWithdrawal, ssOffset, retirementFilingStatus) : 0;
+      const mcTaxableSsIncome = ssOffset * mcSsTaxableFrac;
+      const federalTaxableIncome = Math.max(0, (totalPreTaxGrossWithdrawal + mcTaxableSsIncome) - mcStandardDed);
+      const federalTaxOnWithdrawal = computeFederalTax(federalTaxableIncome, retirementFilingStatus);
+      const stateTaxOnWithdrawal = totalPreTaxGrossWithdrawal * mcStateRate;
+      const taxOnPreTax = federalTaxOnWithdrawal + stateTaxOnWithdrawal;
       const rmdExcessNetOfTax = Math.max(0, rmdForcedExcess - (taxOnPreTax * (rmdForcedExcess / (totalPreTaxGrossWithdrawal || 1))));
 
       let netPreTaxDeduction    = totalPreTaxGrossWithdrawal + taxOnPreTax;

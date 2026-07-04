@@ -28,6 +28,36 @@ export const ADDITIONAL_MEDICARE_THRESHOLD = {
 
 export const FI_MULTIPLIER = 25;
 export const DEFAULT_TARGET_HORIZON_AGE = 65; 
+
+// States with no income tax — flat 0% regardless of any stateTaxRate input. Centralized
+// here since this same list was previously duplicated in tax.js and derived-assumptions.js.
+export const NO_INCOME_TAX_STATES = ['FL', 'TX', 'TN', 'WA', 'NV', 'AK', 'SD', 'WY', 'NH'];
+
+export function getStateTaxRate(state) {
+  return NO_INCOME_TAX_STATES.includes(state.stateCode) ? 0 : (state.stateTaxRate ?? 0) / 100;
+}
+
+// IRS Social Security combined-income test for federal benefit taxability.
+// Combined income = ordinary income (excl. SS) + nontaxable interest + 50% of SS benefit.
+// Below base: 0% of SS is federally taxable. Base–ceiling: up to 50%. Above ceiling: up to 85%.
+// NOTE: this is a FEDERAL rule only. Most states with an income tax (including Michigan)
+// exempt Social Security from state tax entirely — a shrinking minority (e.g. CO, CT, MN,
+// MT, NM, RI, UT, VT, WV as of recent years) still tax it partially. This app's flat
+// per-state rate doesn't distinguish that, so state tax below is applied only to the
+// portfolio-withdrawal portion of retirement income, not the SS benefit — correct for the
+// large majority of states, including Michigan specifically.
+export const SS_TAXABILITY = {
+  single:  { base: 25000, ceiling: 34000 },
+  married: { base: 32000, ceiling: 44000 },
+};
+
+export function ssTaxableFraction(ordinaryIncome, ssAnnualBenefit, status) {
+  const { base, ceiling } = SS_TAXABILITY[status];
+  const combinedIncome = ordinaryIncome + ssAnnualBenefit * 0.5;
+  if (combinedIncome <= base)    return 0;
+  if (combinedIncome <= ceiling) return 0.50;
+  return 0.85;
+}
 export const COAST_FI_REFERENCE_AGE = 65;
 export const MAX_MONTHLY_EXPENSES = 25000;
 export const MIN_AGE = 18;

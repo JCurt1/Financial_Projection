@@ -614,7 +614,9 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
 
   const retirementFilingStatus = state.filingStatus === 'married' ? 'married' : 'single';
   const mcStandardDed = retirementFilingStatus === 'married' ? 32200 : 16100;
-
+  
+  const mcStateRate = getStateTaxRate(state.state);
+  
   // RMDs — same rule as the deterministic drawdown.
   const birthYear = new Date().getFullYear() - state.initialAge;
   const rmdAgeThreshold = rmdStartAge(birthYear);

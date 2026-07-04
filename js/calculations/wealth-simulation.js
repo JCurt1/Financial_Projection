@@ -614,9 +614,10 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
 
   const retirementFilingStatus = state.filingStatus === 'married' ? 'married' : 'single';
   const mcStandardDed = retirementFilingStatus === 'married' ? 32200 : 16100;
-  
-  const mcStateRate = getStateTaxRate(state.state);
-  
+  // State tax rate for retirement withdrawals — was referenced below but never declared,
+  // which is what just broke the whole calculation. Fixed now.
+  const mcStateRate = getStateTaxRate(state);
+
   // RMDs — same rule as the deterministic drawdown.
   const birthYear = new Date().getFullYear() - state.initialAge;
   const rmdAgeThreshold = rmdStartAge(birthYear);

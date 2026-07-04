@@ -1,5 +1,5 @@
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
-import { STANDARD_DEDUCTION, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63 } from '../config/constants.js';
+import { STANDARD_DEDUCTION, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, getStateTaxRate, ssTaxableFraction } from '../config/constants.js';
 
 // 2026 long-term capital gains brackets (federal) — IRS Rev. Proc. 2025-32
 // Thresholds are for taxable income (after standard deduction).
@@ -17,28 +17,6 @@ const LTCG_BRACKETS = {
   ],
 };
 
-// IRS Social Security combined income thresholds for benefit taxability.
-// Combined income = AGI + nontaxable interest + 50% of SS benefit.
-// Below base: 0% of SS is taxable.
-// Base to ceiling: up to 50% of SS is taxable.
-// Above ceiling: up to 85% of SS is taxable.
-const SS_TAXABILITY = {
-  single:  { base: 25000, ceiling: 34000 },
-  married: { base: 32000, ceiling: 44000 },
-};
-
-/**
- * Estimates what fraction of SS benefits are taxable given ordinary income in retirement.
- * Returns a value between 0 and 0.85.
- */
-function ssTaxableFraction(ordinaryIncome, ssAnnualBenefit, status) {
-  const { base, ceiling } = SS_TAXABILITY[status];
-  // Combined income = ordinary income (excl SS) + 50% of SS
-  const combinedIncome = ordinaryIncome + ssAnnualBenefit * 0.5;
-  if (combinedIncome <= base)    return 0;
-  if (combinedIncome <= ceiling) return 0.50;
-  return 0.85;
-}
 
 /**
  * Derives retirementTaxRate and capitalGainsDrag from the user's actual inputs.
@@ -81,12 +59,11 @@ export function deriveRetirementAssumptions(state) {
   const taxableOrdinary    = Math.max(0, totalOrdinaryIncome - stdDed);
   const federalTaxOrdinary = computeFederalTax(taxableOrdinary, status);
 
-  // State tax: no-income-tax states are zeroed regardless of input
-  const noIncomeTaxStates = ['FL', 'TX', 'TN', 'WA', 'NV', 'AK', 'SD', 'WY', 'NH'];
-  const stateRate = noIncomeTaxStates.includes(state.stateCode)
-    ? 0
-    : (state.stateTaxRate ?? 0) / 100;
-  const stateTaxOrdinary = totalOrdinaryIncome * stateRate;
+  // State tax: no-income-tax states are zeroed regardless of input. Applied only to the
+  // portfolio-withdrawal portion, not the SS benefit — most states with an income tax
+  // (including Michigan) exempt Social Security from state tax entirely (see constants.js).
+  const stateRate = getStateTaxRate(state);
+  const stateTaxOrdinary = netWithdrawal * stateRate;
 
   const totalTax = federalTaxOrdinary + stateTaxOrdinary;
   // Effective rate expressed as a fraction of the gross portfolio withdrawal

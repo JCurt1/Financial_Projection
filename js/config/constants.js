@@ -50,30 +50,90 @@ export const DRAWDOWN_INFLATION_RATE = 0.03; // 3% — matches Monte Carlo infla
 export const DRAWDOWN_END_AGE = 90;
 export const CASH_BUFFER_YIELD = 0.045; // ~4.5% HYSA/money market rate (2026)
 
-// Social Security rough replacement rate — fraction of pre-retirement gross income.
-// 35% is a conservative middle-ground estimate for a median earner with a full work history.
-// SS eligibility starts at 62 (reduced) or 67 (full retirement age).
-// Social Security tiered replacement rate — SSA bend-point model approximation.
-// The SSA replaces a higher fraction of income for lower earners and a lower
-// fraction for higher earners. These tiers approximate the actual SSA bend-point
-// formula for a worker with a full 35-year earnings history at the given income level.
-// Source: SSA benefit formula, 2026 bend points (~$1,226 / ~$7,391/mo AIME).
+// --- Social Security: real AIME/bend-point benefit formula ---
+// The old approach applied a tiered replacement rate to ONE year of income (salary at
+// retirement), which ignores your actual earnings history entirely. Real SS benefits are
+// based on Average Indexed Monthly Earnings (AIME) — your highest 35 years of wage-capped
+// earnings, averaged — run through a bend-point formula. That distinction matters a lot for
+// anyone whose income changed significantly over their career (lower early-career pay, a
+// later jump), and for early retirees, where working fewer than 35 years means missing
+// years count as ZERO in the average, not just "not counted."
 //
-//   < $30k gross  → ~55% (low earner, high replacement)
-//   $30k–$60k     → ~40% (median earner)
-//   $60k–$100k    → ~32% (above-median)
-//   $100k–$160k   → ~25% (higher earner)
-//   > $160k       → ~20% (high earner, SS wage base caps benefit)
-//
-// Returns estimated annual SS benefit based on current gross income.
-export function estimateSsAnnualBenefit(grossIncome) {
-  let rate;
-  if      (grossIncome <  30000) rate = 0.55;
-  else if (grossIncome <  60000) rate = 0.40;
-  else if (grossIncome < 100000) rate = 0.32;
-  else if (grossIncome < 160000) rate = 0.25;
-  else                           rate = 0.20;
-  return grossIncome * rate;
+// This app only knows your income from today forward (plus a growth rate), not your actual
+// pre-app earnings history — and asking for a full career history is exactly the kind of
+// extra-input burden not worth adding for most people. So earnings before today are
+// back-cast from your current income using the same growth-rate assumption already used to
+// project forward; it's an assumption, not real data, but it's more honest than assuming
+// a flat single-year proxy or (worse) that your career started at today's salary.
+export const SS_WAGE_BASE = SOCIAL_SECURITY_WAGE_BASE; // reuse the same 2026 wage base as FICA
+// Monthly AIME bend points (2026) — indexed annually to the national average wage; these
+// shift slightly every year, similar to tax brackets. Source: SSA benefit formula.
+export const SS_BEND_POINTS = { first: 1226, second: 7391 };
+export const SS_NUM_COMPUTATION_YEARS = 35;
+// Assumed age SS-covered earnings began, used only to back-cast a synthetic pre-app
+// earnings history — nobody's asked for their actual work-history start age.
+export const SS_CAREER_START_AGE = 22;
+// 8%/year credit for delaying benefits past full retirement age, up to age 70.
+export const SS_DELAYED_CREDIT_PER_YEAR = 0.08;
+export const SS_MAX_DELAYED_CLAIM_AGE = 70;
+
+// Builds a synthetic year-by-year earnings history from career start to retirement:
+// back-cast (career start → today) and forward-cast (today → retirement) both using the
+// same salary growth rate, anchored on today's actual income.
+export function buildSyntheticEarningsHistory(state) {
+  const growthRate = (state.annualSalaryGrowth ?? 0) / 100;
+  const currentAge = state.initialAge ?? 30;
+  const retirementAge = state.targetHorizonAge || DEFAULT_TARGET_HORIZON_AGE;
+  // No more SS-covered earnings once you stop working, and no benefit to counting years
+  // past the max delayed-claim age either.
+  const lastEarningAge = Math.min(retirementAge, SS_MAX_DELAYED_CLAIM_AGE);
+
+  const history = [];
+  for (let age = SS_CAREER_START_AGE; age < currentAge; age++) {
+    const yearsBack = currentAge - age;
+    history.push(Math.max(0, state.grossIncome / Math.pow(1 + growthRate, yearsBack)));
+  }
+  for (let age = currentAge; age < lastEarningAge; age++) {
+    const yearsForward = age - currentAge;
+    history.push(Math.max(0, state.grossIncome * Math.pow(1 + growthRate, yearsForward)));
+  }
+  return history;
+}
+
+// Converts an earnings history into an annual PIA (Primary Insurance Amount) — the
+// benefit payable starting at full retirement age, before any delayed-claiming credit.
+export function computeAnnualPia(earningsHistory) {
+  const capped = earningsHistory.map(e => Math.min(e, SS_WAGE_BASE));
+  const top35 = [...capped].sort((a, b) => b - a).slice(0, SS_NUM_COMPUTATION_YEARS);
+  while (top35.length < SS_NUM_COMPUTATION_YEARS) top35.push(0); // missing years count as zero
+  const aime = top35.reduce((sum, e) => sum + e, 0) / (SS_NUM_COMPUTATION_YEARS * 12);
+
+  const { first, second } = SS_BEND_POINTS;
+  let monthlyPia;
+  if (aime <= first) {
+    monthlyPia = aime * 0.90;
+  } else if (aime <= second) {
+    monthlyPia = first * 0.90 + (aime - first) * 0.32;
+  } else {
+    monthlyPia = first * 0.90 + (second - first) * 0.32 + (aime - second) * 0.15;
+  }
+  return monthlyPia * 12;
+}
+
+// Full estimate: builds the synthetic earnings history, computes PIA, and applies the
+// delayed-retirement credit if the plan claims after full retirement age (this app never
+// claims before full retirement age — see SS_FULL_RETIREMENT_AGE usage in the drawdown
+// engines — so there's no early-claiming reduction to model).
+export function estimateSsAnnualBenefit(state) {
+  const history = buildSyntheticEarningsHistory(state);
+  const annualPia = computeAnnualPia(history);
+
+  const retirementAge = state.targetHorizonAge || DEFAULT_TARGET_HORIZON_AGE;
+  const claimAge = Math.max(retirementAge, SS_FULL_RETIREMENT_AGE);
+  const delayedYears = Math.max(0, Math.min(claimAge, SS_MAX_DELAYED_CLAIM_AGE) - SS_FULL_RETIREMENT_AGE);
+  const delayedMultiplier = 1 + delayedYears * SS_DELAYED_CREDIT_PER_YEAR;
+
+  return annualPia * delayedMultiplier;
 }
 
 export const SS_FULL_RETIREMENT_AGE = 67;

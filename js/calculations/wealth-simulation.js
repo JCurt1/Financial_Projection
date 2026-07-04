@@ -51,9 +51,13 @@ export function simulateWealth(state, deps) {
 
   // Taxable Brokerage — existing brokerage balance (market yield)
   let simBrokeragePool = state.brokerage;
-  // Cost basis: the portion of simBrokeragePool that's principal, not gain. Falls back to
-  // the full balance (assumes zero embedded gain) if the user hasn't entered a real basis.
-  let simBrokerageCostBasis = state.brokerageCostBasis ?? state.brokerage;
+  // Cost basis: the portion of simBrokeragePool that's principal, not gain. We have no way
+  // to know your real embedded gain without asking, and that's a level of detail most people
+  // don't want to enter — so this assumes zero embedded gain on your starting balance
+  // (optimistic: real tax owed on this specific chunk may be somewhat higher once you sell).
+  // Every dollar contributed FROM HERE ON is tracked precisely, so the approximation only
+  // ever applies to today's existing balance, not future growth.
+  let simBrokerageCostBasis = state.brokerage;
   let simHsaPool = state.hsaBalance || 0;
   // Cash Buffer — liquid savings/HYSA (low yield, capped target)
   // Seed with existing cash balance; target cap = cashBufferMonths x monthly expenses
@@ -108,19 +112,6 @@ export function simulateWealth(state, deps) {
       ? simMortgageBalance / mortgageTermMonths
       : simMortgageBalance * mortgageMonthlyRate / (1 - Math.pow(1 + mortgageMonthlyRate, -mortgageTermMonths));
 
-  
-  
-  const retirementTaxFactor =
-  1 - ((state.retirementTaxRate ?? 15) / 100);
-
-  const spendableNetWorth =
-  (simPreTaxPool * retirementTaxFactor) +
-  simRothPool +
-  simBrokeragePool +
-  simHsaPool +
-  simCashBuffer -
-  simDebt;
-  
   let loopsTotal = targetHorizonAge - currentSimulationAge;
   if (loopsTotal <= 0) loopsTotal = 1;
 
@@ -366,14 +357,10 @@ if (!absoluteCoastAchievedAge &&
   let indexedAnnualSpendingRequirement =
     state.monthlyExpenses * Math.pow(1 + expenseGrowthRateD, Math.max(0, drawdownAccumYears)) * 12;
 
-  // Social Security: 35% wage replacement starting at full retirement age (67).
-  // Applied as an annual income offset against portfolio withdrawals.
-  // SS benefit uses tiered replacement rates on the salary at retirement, not current salary.
-  // SS is based on your highest 35 years of indexed earnings — using the grown salary at
-  // retirement age is a much better proxy than today's income for someone early in their career.
-  const yearsToRetirement   = Math.max(0, targetHorizonAge - state.initialAge);
-  const salaryAtRetirement  = state.grossIncome * Math.pow(1 + salaryGrowthRate, yearsToRetirement);
-  const ssAnnualBenefit     = estimateSsAnnualBenefit(salaryAtRetirement);
+  // Social Security: real AIME/bend-point estimate built from your simulated earnings
+  // trajectory (back-cast + forward-cast around today's income), not a single-year proxy.
+  // See estimateSsAnnualBenefit / buildSyntheticEarningsHistory in constants.js.
+  const ssAnnualBenefit     = estimateSsAnnualBenefit(state);
   const ssStartAge          = Math.max(targetHorizonAge, SS_FULL_RETIREMENT_AGE);
 
   const drawdownTimelineData = [];
@@ -606,10 +593,8 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
   const inflationRate = 0.03; // 3% — matches deterministic drawdown chart assumption
   const capitalGainsRate = (state.capitalGainsDrag ?? 10) / 100;
 
-  // SS offset — same tiered benefit and start-age logic as the deterministic drawdown.
-  const mcYearsToRetirement  = Math.max(0, startAge - state.initialAge);
-  const mcSalaryAtRetirement = state.grossIncome * Math.pow((1 + (state.annualSalaryGrowth ?? 0) / 100), mcYearsToRetirement);
-  const mcSsAnnualBenefit    = estimateSsAnnualBenefit(mcSalaryAtRetirement);
+  // SS offset — same real AIME/bend-point estimate as the deterministic drawdown.
+  const mcSsAnnualBenefit    = estimateSsAnnualBenefit(state);
   const mcSsStartAge         = Math.max(startAge, SS_FULL_RETIREMENT_AGE);
 
   const retirementFilingStatus = state.filingStatus === 'married' ? 'married' : 'single';

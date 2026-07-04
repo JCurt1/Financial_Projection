@@ -59,13 +59,11 @@ export function deriveRetirementAssumptions(state) {
   const inflatedMonthlyExp  = (state.monthlyExpenses || 3000) * Math.pow(1 + expenseGrowthRate, yearsToRetirement);
   const estimatedAnnualWithdrawal = inflatedMonthlyExp * 12;
 
-  // --- 2. SS benefit at retirement salary ---
-  const salaryGrowthRate   = (state.annualSalaryGrowth ?? 2) / 100;
-  const salaryAtRetirement = state.grossIncome * Math.pow(1 + salaryGrowthRate, yearsToRetirement);
+  // --- 2. SS benefit — now a real AIME/bend-point estimate (see constants.js) ---
   const retirementAge      = state.targetHorizonAge || 65;
   // SS benefit only applies if retirement age >= SS full retirement age
   const ssApplies          = retirementAge >= SS_FULL_RETIREMENT_AGE;
-  const ssAnnualBenefit    = ssApplies ? estimateSsAnnualBenefit(salaryAtRetirement) : 0;
+  const ssAnnualBenefit    = ssApplies ? estimateSsAnnualBenefit(state) : 0;
 
   // --- 3. Net portfolio withdrawal needed (expenses minus SS) ---
   const netWithdrawal = Math.max(0, estimatedAnnualWithdrawal - ssAnnualBenefit);

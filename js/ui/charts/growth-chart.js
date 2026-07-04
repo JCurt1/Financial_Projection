@@ -17,29 +17,51 @@ export function createGrowthChart() {
     type: 'line',
     data: {
       labels: [],
-      datasets: [{
-        label: 'Accumulation Phase',
-        data: [],
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37, 99, 235, 0.04)',
-        borderWidth: 2,
-        pointRadius: 0,
-        pointHoverRadius: 5,
-        fill: true,
-        tension: 0.15,
-      }],
+      datasets: [
+        {
+          label: 'Liquid Portfolio',
+          data: [],
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.04)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.15,
+        },
+        {
+          // Driven by mortgageRate / mortgageTermYears / homeAppreciationRate — previously
+          // computed every render but never actually plotted anywhere, so those three
+          // inputs had no visible effect. This line is that effect: amortization paying
+          // down the mortgage plus home price appreciation, year over year.
+          label: 'Home Equity',
+          data: [],
+          borderColor: '#d97706',
+          backgroundColor: 'rgba(217, 119, 6, 0.04)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.15,
+        },
+      ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'end',
+          labels: { color: labelColor, font: { family: 'DM Sans', size: 11 }, boxWidth: 12, usePointStyle: true },
+        },
         tooltip: {
           mode: 'index',
           intersect: false,
           callbacks: {
             label(context) {
-              return ' Balance: ' + formatCurrency(context.parsed.y);
+              return ' ' + context.dataset.label + ': ' + formatCurrency(context.parsed.y);
             },
           },
         },
@@ -63,5 +85,6 @@ export function updateGrowthChart(simulation) {
   if (!charts.growthChart) return;
   charts.growthChart.data.labels = simulation.growthLabels;
   charts.growthChart.data.datasets[0].data = simulation.growthData;
+  charts.growthChart.data.datasets[1].data = simulation.homeEquityData;
   charts.growthChart.update();
 }

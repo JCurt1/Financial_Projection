@@ -3,13 +3,6 @@ export const DEFAULT_STATE = {
   retirement: 22000,
   homeValue: 0,
   brokerage: 8500,
-  // brokerageCostBasis: your actual investment (basis) in the brokerage balance above —
-  // the part that ISN'T a capital gain. Defaults to matching brokerage (assumes zero
-  // embedded gain yet) since we can't know your real basis without you telling us.
-  // Override this with your real cost basis for accurate capital-gains tax projections;
-  // leaving it equal to `brokerage` is optimistic (assumes no tax owed on withdrawal
-  // until you've contributed past this amount).
-  brokerageCostBasis: 8500,
   consumerDebt: 17000,
   mortgage: 0,
   mortgageRate: 6.5,            // % — annual mortgage interest rate, used to amortize the balance forward

@@ -113,18 +113,6 @@
       <div class="card-sub">Stocks, precious metals, crypto</div>
     </div>
 
-    <div class="asset-card asset" data-key="brokerageCostBasis" title="What you actually put in — the part of your brokerage balance that ISN'T a capital gain. Used to tax only realized gains on withdrawal, not your own principal.">
-      <div class="card-top">
-        <span class="card-badge badge-amber">Cost Basis</span>
-      </div>
-      <div class="card-label">Brokerage Cost Basis</div>
-      <div class="card-input-row">
-        <span class="card-prefix">$</span>
-        <input class="card-input" type="text" value="8,500" />
-      </div>
-      <div class="card-sub">Your total contributions into the balance above (not gains). Defaults to assuming no gain yet.</div>
-    </div>
-
     <div class="asset-card liability" data-key="consumerDebt">
       <div class="card-top">
         <span class="card-badge badge-red">High-Priority Debt</span>
@@ -152,7 +140,7 @@
   </div>
 
   <div style="display:flex; gap:16px; flex-wrap:wrap; margin: -8px 0 20px 0;">
-    <div class="diag-rate-wrap" title="Annual interest rate on your mortgage — used to amortize the balance forward in projections">
+    <div class="diag-rate-wrap" title="Annual interest rate on your mortgage — used to amortize the balance forward for the Home Equity projection only. Your actual monthly mortgage payment still needs to be included in Monthly Household Expenses below — it isn't deducted from cash flow here.">
       <label for="in-mortgage-rate">Mortgage Rate:</label>
       <input type="text" id="in-mortgage-rate" value="6.5" style="width: 28px;" />
       <span>%</span>
@@ -200,7 +188,7 @@
       </div>
 
       <div class="income-input-group">
-        <label for="in-401k-pct">Your 401(k) Deferral</label>
+        <label for="in-401k-pct">401(k) Contribution</label>
         <div class="income-field-wrap">
           <input type="text" id="in-401k-pct" class="mono-type" value="15" style="text-align: right; padding-right: 4px;" />
           <span>%</span>
@@ -226,7 +214,7 @@
       </div>
 
       <div class="income-input-group">
-        <label for="in-health-raw">Monthly Health Cost</label>
+        <label for="in-health-raw" title="Deducted pre-tax from your paycheck (like a real employer health premium) — already excluded from your take-home pay above. Don't add it again in Monthly Expenses below.">Monthly Health Insurance Cost</label>
         <div class="income-field-wrap">
           <span>$</span>
           <input type="text" id="in-health-raw" class="mono-type" value="150" />
@@ -236,6 +224,9 @@
           <button class="tier-btn" id="tier-spouse" type="button">Spouse</button>
           <button class="tier-btn" id="tier-family" type="button">Family</button>
         </div>
+        <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; display: block;">
+          Pre-tax payroll deduction — already out of your paycheck, not part of Monthly Expenses
+        </span>
       </div>
 
       <div class="income-input-group">
@@ -245,7 +236,7 @@
           <input type="text" id="in-hsa-monthly" class="mono-type" value="0" />
         </div>
         <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; display: block;">
-          Max: $366.67/mo (Single) | $729.17/mo (Family)
+          Max: $366.67/mo (Single) | $729.17/mo (Family) — pre-tax, already excluded from Monthly Expenses
         </span>
       </div>
 
@@ -389,6 +380,11 @@
           <input type="text" class="slider-input" id="txt-expenses" value="$3,200/mo" />
         </div>
         <input type="range" min="0" max="25000" step="1" value="3200" id="sl-expenses" />
+        <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; display: block;">
+          Include your full mortgage payment (principal + interest) here if you have one — it isn't
+          deducted anywhere else. Leave out health premiums and HSA contributions — those are already
+          pulled pre-tax above.
+        </span>
       </div>
 
       <div class="income-input-group">

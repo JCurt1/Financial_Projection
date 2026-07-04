@@ -1,21 +1,5 @@
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
-import { STANDARD_DEDUCTION, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, getStateTaxRate, ssTaxableFraction } from '../config/constants.js';
-
-// 2026 long-term capital gains brackets (federal) — IRS Rev. Proc. 2025-32
-// Thresholds are for taxable income (after standard deduction).
-// LTCG rate is determined by WHERE your total ordinary income + LTCG stacks into these tiers.
-const LTCG_BRACKETS = {
-  single:  [
-    { max: 49450,   rate: 0.00 },
-    { max: 545500,  rate: 0.15 },
-    { max: Infinity, rate: 0.20 },
-  ],
-  married: [
-    { max: 98900,   rate: 0.00 },
-    { max: 613700,  rate: 0.15 },
-    { max: Infinity, rate: 0.20 },
-  ],
-};
+import { STANDARD_DEDUCTION, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, getStateTaxRate, ssTaxableFraction, computeCapitalGainsRate } from '../config/constants.js';
 
 
 /**
@@ -73,24 +57,11 @@ export function deriveRetirementAssumptions(state) {
     : 0;
 
   // --- 6. Cap Gains Drag — stacked income approach ---
-  // LTCG rate depends on where your TOTAL income (ordinary + capital gains) sits in the brackets.
-  // We stack ordinary taxable income first, then find the marginal LTCG rate at that stack level.
-  // This prevents misclassification into the 0% bracket when ordinary income already fills it.
-  const ordinaryTaxableStack = Math.max(0, totalOrdinaryIncome - stdDed);
-  const brackets = LTCG_BRACKETS[status];
-  let federalCapGainsRate = 0.15; // safe default
-  for (const bracket of brackets) {
-    if (ordinaryTaxableStack < bracket.max) {
-      federalCapGainsRate = bracket.rate;
-      break;
-    }
-  }
-
-  // NIIT: 3.8% on net investment income above $200k single / $250k married
-  const niitThreshold = status === 'married' ? 250000 : 200000;
-  const niitRate = totalOrdinaryIncome > niitThreshold ? 0.038 : 0;
-
-  const derivedCapGainsDrag = (federalCapGainsRate + niitRate + stateRate) * 100;
+  // LTCG rate depends on where your TOTAL income (ordinary + capital gains) sits in the
+  // brackets. Uses the same shared logic the actual drawdown engines now recalculate
+  // year by year, instead of a locally duplicated copy.
+  const capGainsRate = computeCapitalGainsRate(totalOrdinaryIncome, stdDed, status, state);
+  const derivedCapGainsDrag = capGainsRate * 100;
 
   return {
     derivedRetirementTaxRate: Math.round(derivedRetirementTaxRate * 10) / 10,

@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge, getStateTaxRate, ssTaxableFraction } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge, getStateTaxRate, ssTaxableFraction, computeCapitalGainsRate } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 import { computeAnnualFica } from './tax.js';
 
@@ -23,10 +23,9 @@ function applyBrokerageFlow(balance, costBasis, flow) {
 export function simulateWealth(state, deps) {
   const { tax, cashflow, debt, runway, fi } = deps;
   const { fiTargetNumber, annualYield } = fi;
-  // capitalGainsRate is the marginal tax rate (federal LTCG + NIIT + state) applied ONLY
-  // to the realized-gain portion of a brokerage withdrawal — not the whole yield anymore.
-  // See applyBrokerageFlow / cost-basis tracking below for how gain vs. principal is split.
-  const capitalGainsRate = (state.capitalGainsDrag ?? 10) / 100;
+  // Capital gains rate (federal LTCG + NIIT + state) is now computed FRESH each drawdown
+  // year from that year's actual ordinary income, not held as one static rate for the
+  // whole horizon — see computeCapitalGainsRate usage inside the drawdown loop below.
 
   const currentSimulationAge = state.initialAge;
   const targetHorizonAge = state.targetHorizonAge || 65;
@@ -345,19 +344,21 @@ if (!absoluteCoastAchievedAge &&
   const homeEquityAtRetirement = simHomeValue - simMortgageBalance;
 
   let drawdownAge = targetHorizonAge;
-  // At retirement, fold cash buffer AND remaining HSA balance into brokerage (all liquid,
-  // non-retirement-account money). NOTE: simHsaPool was previously dropped here entirely —
-  // it kept compounding through accumulation but then vanished from the retirement drawdown
-  // simulation instead of being spent down. Folding it into brokerage fixes that.
-  let drawdownPreTaxBucket    = simPreTaxPool;
+  // At retirement, fold cash buffer into brokerage (liquid, non-retirement money — pure
+  // principal, correctly tax-free) and fold HSA into the PRE-TAX bucket instead.
+  // HSA growth is only tax-free if spent on qualified medical expenses — this model can't
+  // distinguish that from general retirement spending, so treating merged HSA money as
+  // ordinary-income-taxed (like a traditional IRA) on withdrawal is the conservative
+  // assumption, not the tax-free one. (One accepted simplification: real HSAs aren't
+  // subject to RMDs, but folding it into the pre-tax bucket means it's included in the RMD
+  // base here — a minor simplification that leans toward MORE tax paid, not less, so it
+  // doesn't fight the "stay conservative" goal.)
+  let drawdownPreTaxBucket    = simPreTaxPool + simHsaPool;
   let drawdownRothBucket      = simRothPool;
-  let drawdownBrokerageBucket = simBrokeragePool + simCashBuffer + simHsaPool;
-  // Cash buffer and HSA are pure principal when they land here — no embedded gain — so
-  // they add straight to cost basis too (a slight simplification for HSA specifically:
-  // real HSA growth is tax-free if spent on qualified medical expenses, which this model
-  // doesn't track explicitly, so treating it as ordinary post-merge basis is a reasonable
-  // stand-in rather than a further layer of medical-expense modeling).
-  let drawdownBrokerageCostBasis = simBrokerageCostBasis + simCashBuffer + simHsaPool;
+  let drawdownBrokerageBucket = simBrokeragePool + simCashBuffer;
+  // Cash buffer is pure principal when it lands here — no embedded gain — so it adds
+  // straight to cost basis. HSA no longer flows through here at all (see above).
+  let drawdownBrokerageCostBasis = simBrokerageCostBasis + simCashBuffer;
 
   // Inflate expenses forward to retirement age as starting drawdown spending baseline
   const drawdownAccumYears    = targetHorizonAge - state.initialAge;
@@ -395,21 +396,6 @@ if (!absoluteCoastAchievedAge &&
     let rothPull      = netAnnualWithdrawal * rothShare;
     const brokerageNetTarget = netAnnualWithdrawal * brokerageShare;
 
-    // --- Capital gains: tax only the realized-gain portion, using real cost basis ---
-    // gainFraction is the share of the CURRENT balance that's unrealized gain (average-cost
-    // method — selling X% of the account realizes X% of its basis and X% of its gain, not
-    // a disproportionate share of either). Only that gain fraction of what's sold is taxed
-    // at the derived LTCG+NIIT+state rate; the rest is just your own principal coming back.
-    const brokerageGainFraction = drawdownBrokerageBucket > 0
-      ? Math.max(0, 1 - (drawdownBrokerageCostBasis / drawdownBrokerageBucket))
-      : 0;
-    const brokerageTaxDrag = brokerageGainFraction * capitalGainsRate;
-    // Gross up the NET target into a gross sale amount: sell enough that, after tax on
-    // just the gain portion of the sale, brokerageNetTarget dollars are left to spend.
-    let brokeragePull = brokerageTaxDrag < 1
-      ? brokerageNetTarget / (1 - brokerageTaxDrag)
-      : brokerageNetTarget;
-
     // --- Required Minimum Distributions (SECURE 2.0) ---
     // The IRS forces a minimum pre-tax withdrawal starting at age 73 or 75 (birth-year
     // dependent) regardless of spending need. If the RMD exceeds what this year's spending
@@ -423,7 +409,7 @@ if (!absoluteCoastAchievedAge &&
     const totalPreTaxGrossWithdrawal = preTaxPull + rmdForcedExcess;
 
     // Tax on pre-tax withdrawals — Roth is tax-free at withdrawal, brokerage is handled
-    // separately above via cost-basis-aware capital gains.
+    // separately below via cost-basis-aware capital gains.
     const retirementStatus = state.filingStatus === 'married' ? 'married' : 'single';
     const standardDed = retirementStatus === 'married' ? 32200 : 16100;
 
@@ -444,6 +430,30 @@ if (!absoluteCoastAchievedAge &&
     const stateTaxOnWithdrawal = totalPreTaxGrossWithdrawal * stateRate;
 
     const taxOnPreTax = federalTaxOnWithdrawal + stateTaxOnWithdrawal;
+
+    // --- Capital gains: tax only the realized-gain portion, using real cost basis ---
+    // Recalculated fresh EVERY YEAR from that year's actual ordinary income (RMD + taxable
+    // SS) rather than a single rate held constant for the whole drawdown horizon — ordinary
+    // income shifts a lot over 25+ years (e.g. dropping once RMDs taper off in your 80s),
+    // so the LTCG bracket and NIIT exposure should move with it, same as the ordinary-income
+    // tax above already does.
+    const totalOrdinaryIncomeThisYear = totalPreTaxGrossWithdrawal + taxableSsIncome;
+    const capitalGainsRateThisYear = computeCapitalGainsRate(totalOrdinaryIncomeThisYear, standardDed, retirementStatus, state);
+    // gainFraction is the share of the CURRENT balance that's unrealized gain (average-cost
+    // method — selling X% of the account realizes X% of its basis and X% of its gain, not
+    // a disproportionate share of either). Only that gain fraction of what's sold is taxed
+    // at this year's derived LTCG+NIIT+state rate; the rest is just your own principal
+    // coming back.
+    const brokerageGainFraction = drawdownBrokerageBucket > 0
+      ? Math.max(0, 1 - (drawdownBrokerageCostBasis / drawdownBrokerageBucket))
+      : 0;
+    const brokerageTaxDrag = brokerageGainFraction * capitalGainsRateThisYear;
+    // Gross up the NET target into a gross sale amount: sell enough that, after tax on
+    // just the gain portion of the sale, brokerageNetTarget dollars are left to spend.
+    let brokeragePull = brokerageTaxDrag < 1
+      ? brokerageNetTarget / (1 - brokerageTaxDrag)
+      : brokerageNetTarget;
+
     // Net-of-tax proceeds from the forced RMD excess (beyond what spending needed) get
     // reinvested into the brokerage bucket rather than evaporating from net worth.
     const rmdExcessNetOfTax = Math.max(0, rmdForcedExcess - (taxOnPreTax * (rmdForcedExcess / (totalPreTaxGrossWithdrawal || 1))));
@@ -614,7 +624,8 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
 
   const initialAnnualSpending = state.monthlyExpenses * 12;
   const inflationRate = 0.03; // 3% — matches deterministic drawdown chart assumption
-  const capitalGainsRate = (state.capitalGainsDrag ?? 10) / 100;
+  // Capital gains rate is now computed fresh each drawdown year (see loop below), not
+  // held as one static rate for the whole horizon.
 
   // SS offset — same real AIME/bend-point estimate as the deterministic drawdown.
   const mcSsAnnualBenefit    = estimateSsAnnualBenefit(state);
@@ -639,14 +650,14 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
     // --- PHASE 1 (per-trial): replay accumulation under randomized monthly returns ---
     let preTax, roth, brokerage, brokerageCostBasis;
     if (mcAccumulationSchedule && months > 0) {
-      preTax    = mcAccumulationSchedule.initialPreTax;
+      // HSA merges into the PRE-TAX bucket (ordinary income tax on withdrawal), not
+      // brokerage — see the deterministic engine's identical treatment and the
+      // medical-expense caveat noted there. All four buckets grow at the same rate during
+      // accumulation, so this merge is exact, not an approximation.
+      preTax    = mcAccumulationSchedule.initialPreTax + (mcAccumulationSchedule.initialHsa || 0);
       roth      = mcAccumulationSchedule.initialRoth;
-      brokerage = mcAccumulationSchedule.initialBrokerage + (mcAccumulationSchedule.initialHsa || 0);
-      // HSA is folded into brokerage at the same rate/timing as brokerage itself, so its
-      // starting balance is treated as basis too (see deterministic engine's identical
-      // treatment and the medical-expense caveat noted there).
-      brokerageCostBasis = (mcAccumulationSchedule.initialBrokerageCostBasis ?? mcAccumulationSchedule.initialBrokerage)
-        + (mcAccumulationSchedule.initialHsa || 0);
+      brokerage = mcAccumulationSchedule.initialBrokerage;
+      brokerageCostBasis = mcAccumulationSchedule.initialBrokerageCostBasis ?? mcAccumulationSchedule.initialBrokerage;
 
       for (let m = 0; m < months; m++) {
         const monthlyFactor = sampleLognormalGrossFactor(accumMeanReturn, accumVolatility, 12);
@@ -654,9 +665,9 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
         roth      *= monthlyFactor;
         brokerage *= monthlyFactor;
 
-        preTax += mcAccumulationSchedule.deltaPreTaxByMonth[m];
+        preTax += mcAccumulationSchedule.deltaPreTaxByMonth[m] + (mcAccumulationSchedule.deltaHsaByMonth[m] || 0);
         roth   += mcAccumulationSchedule.deltaRothByMonth[m];
-        const brokerageFlow = mcAccumulationSchedule.deltaBrokerageByMonth[m] + (mcAccumulationSchedule.deltaHsaByMonth[m] || 0);
+        const brokerageFlow = mcAccumulationSchedule.deltaBrokerageByMonth[m];
         ({ balance: brokerage, costBasis: brokerageCostBasis } = applyBrokerageFlow(brokerage, brokerageCostBasis, brokerageFlow));
 
         // The delta schedule is a FIXED dollar-amount path computed once from the
@@ -716,15 +727,6 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
       let rothPull      = netAnnualWithdrawal * rothShare;
       const brokerageNetTarget = netAnnualWithdrawal * brokerageShare;
 
-      // Cost-basis-aware capital gains: tax only the realized-gain portion of the sale.
-      const brokerageGainFraction = brokerage > 0
-        ? Math.max(0, 1 - (brokerageCostBasis / brokerage))
-        : 0;
-      const brokerageTaxDrag = brokerageGainFraction * capitalGainsRate;
-      let brokeragePull = brokerageTaxDrag < 1
-        ? brokerageNetTarget / (1 - brokerageTaxDrag)
-        : brokerageNetTarget;
-
       // RMD: forces a minimum pre-tax withdrawal starting at age 73/75, regardless of
       // spending need. Excess beyond what was already being pulled is still taxed as
       // ordinary income, then reinvested into brokerage.
@@ -741,6 +743,20 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
       const federalTaxOnWithdrawal = computeFederalTax(federalTaxableIncome, retirementFilingStatus);
       const stateTaxOnWithdrawal = totalPreTaxGrossWithdrawal * mcStateRate;
       const taxOnPreTax = federalTaxOnWithdrawal + stateTaxOnWithdrawal;
+
+      // Cost-basis-aware capital gains: recalculated fresh EVERY YEAR from that year's
+      // actual ordinary income (RMD + taxable SS), same as the deterministic drawdown —
+      // not one static rate held constant across the whole horizon.
+      const totalOrdinaryIncomeThisYear = totalPreTaxGrossWithdrawal + mcTaxableSsIncome;
+      const capitalGainsRateThisYear = computeCapitalGainsRate(totalOrdinaryIncomeThisYear, mcStandardDed, retirementFilingStatus, state);
+      const brokerageGainFraction = brokerage > 0
+        ? Math.max(0, 1 - (brokerageCostBasis / brokerage))
+        : 0;
+      const brokerageTaxDrag = brokerageGainFraction * capitalGainsRateThisYear;
+      let brokeragePull = brokerageTaxDrag < 1
+        ? brokerageNetTarget / (1 - brokerageTaxDrag)
+        : brokerageNetTarget;
+
       const rmdExcessNetOfTax = Math.max(0, rmdForcedExcess - (taxOnPreTax * (rmdForcedExcess / (totalPreTaxGrossWithdrawal || 1))));
 
       let netPreTaxDeduction    = totalPreTaxGrossWithdrawal + taxOnPreTax;

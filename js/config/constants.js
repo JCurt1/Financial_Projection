@@ -58,6 +58,52 @@ export function ssTaxableFraction(ordinaryIncome, ssAnnualBenefit, status) {
   if (combinedIncome <= ceiling) return 0.50;
   return 0.85;
 }
+
+// 2026 long-term capital gains brackets (federal) — IRS Rev. Proc. 2025-32.
+// Thresholds are for taxable income (after standard deduction). LTCG rate is determined
+// by where your total ordinary income + LTCG stacks into these tiers.
+export const LTCG_BRACKETS = {
+  single:  [
+    { max: 49450,   rate: 0.00 },
+    { max: 545500,  rate: 0.15 },
+    { max: Infinity, rate: 0.20 },
+  ],
+  married: [
+    { max: 98900,   rate: 0.00 },
+    { max: 613700,  rate: 0.15 },
+    { max: Infinity, rate: 0.20 },
+  ],
+};
+
+export const NIIT_RATE = 0.038;
+export const NIIT_THRESHOLD = { single: 200000, married: 250000 };
+
+// Computes the blended capital-gains rate (federal LTCG + NIIT + state) for a GIVEN year's
+// actual ordinary income — not a single rate held constant across an entire drawdown
+// horizon. Ordinary income (RMDs, taxable SS) shifts every year — often dropping once RMDs
+// taper off in your 80s — so the LTCG bracket and NIIT exposure should be recalculated
+// year by year, same as the ordinary-income tax already is, instead of frozen at whatever
+// single year it happened to be computed against.
+export function computeCapitalGainsRate(totalOrdinaryIncome, standardDeduction, status, state) {
+  // LTCG bracket: determined by where ordinary income already stacks (post-deduction),
+  // since the gain is taxed as if it sits on top of your other income.
+  const ordinaryTaxableStack = Math.max(0, totalOrdinaryIncome - standardDeduction);
+  const brackets = LTCG_BRACKETS[status];
+  let federalCapGainsRate = 0.15; // safe default
+  for (const bracket of brackets) {
+    if (ordinaryTaxableStack < bracket.max) {
+      federalCapGainsRate = bracket.rate;
+      break;
+    }
+  }
+
+  // NIIT: 3.8% on net investment income above $200k single / $250k married (pre-deduction
+  // total ordinary income, per the actual NIIT MAGI test).
+  const niitRate = totalOrdinaryIncome > NIIT_THRESHOLD[status] ? NIIT_RATE : 0;
+
+  const stateRate = getStateTaxRate(state);
+  return federalCapGainsRate + niitRate + stateRate;
+}
 export const COAST_FI_REFERENCE_AGE = 65;
 export const MAX_MONTHLY_EXPENSES = 25000;
 export const MIN_AGE = 18;

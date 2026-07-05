@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge, getStateTaxRate, ssTaxableFraction, computeCapitalGainsRate } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge, getStateTaxRate, ssTaxableFraction, computeCapitalGainsRate, MEDICARE_ELIGIBILITY_AGE, PRE_MEDICARE_HEALTH_COST_MONTHLY, MEDICARE_HEALTH_COST_MONTHLY, HEALTHCARE_INFLATION_RATE } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 import { computeAnnualFica } from './tax.js';
 
@@ -366,6 +366,17 @@ if (!absoluteCoastAchievedAge &&
   let indexedAnnualSpendingRequirement =
     state.monthlyExpenses * Math.pow(1 + expenseGrowthRateD, Math.max(0, drawdownAccumYears)) * 12;
 
+  // Retirement health insurance — healthCostMonthly (the payroll-deducted premium) stops
+  // applying the moment there's no more employer paycheck to deduct it from, and nothing
+  // replaced it before this: retirement modeled health insurance as free. Two tiers, split
+  // at Medicare eligibility, inflated on their own (higher) healthcare-cost trend rather
+  // than the general expense growth rate.
+  const healthCostFilingKey = state.filingStatus === 'married' ? 'married' : 'single';
+  let indexedPreMedicareHealthCost =
+    PRE_MEDICARE_HEALTH_COST_MONTHLY[healthCostFilingKey] * 12 * Math.pow(1 + HEALTHCARE_INFLATION_RATE, Math.max(0, drawdownAccumYears));
+  let indexedMedicareHealthCost =
+    MEDICARE_HEALTH_COST_MONTHLY[healthCostFilingKey] * 12 * Math.pow(1 + HEALTHCARE_INFLATION_RATE, Math.max(0, drawdownAccumYears));
+
   // Social Security: real AIME/bend-point estimate built from your simulated earnings
   // trajectory (back-cast + forward-cast around today's income), not a single-year proxy.
   // See estimateSsAnnualBenefit / buildSyntheticEarningsHistory in constants.js.
@@ -380,12 +391,19 @@ if (!absoluteCoastAchievedAge &&
     if (combinedAssets <= 0) {
       drawdownTimelineData.push({ age: drawdownAge, totalWealth: 0, preTax: 0, roth: 0, brokerage: 0 });
       drawdownAge++;
+      indexedAnnualSpendingRequirement *= (1 + DRAWDOWN_INFLATION_RATE);
+      indexedPreMedicareHealthCost     *= (1 + HEALTHCARE_INFLATION_RATE);
+      indexedMedicareHealthCost        *= (1 + HEALTHCARE_INFLATION_RATE);
       continue;
     }
 
-    // Net spending from portfolio = expenses minus any Social Security income
+    const healthCostThisYear = drawdownAge < MEDICARE_ELIGIBILITY_AGE
+      ? indexedPreMedicareHealthCost
+      : indexedMedicareHealthCost;
+
+    // Net spending from portfolio = expenses + health insurance minus any Social Security income
     const ssOffset = drawdownAge >= ssStartAge ? ssAnnualBenefit : 0;
-    const netAnnualWithdrawal = Math.max(0, indexedAnnualSpendingRequirement - ssOffset);
+    const netAnnualWithdrawal = Math.max(0, (indexedAnnualSpendingRequirement + healthCostThisYear) - ssOffset);
 
     // Pro-rata draw from each bucket based on its share of total portfolio
     const preTaxShare    = drawdownPreTaxBucket / combinedAssets;
@@ -504,6 +522,8 @@ if (!absoluteCoastAchievedAge &&
     // at withdrawal (handled above via cost basis), not annually on unrealized appreciation.
     drawdownBrokerageBucket *= (1 + DRAWDOWN_GROWTH_RATE);
     indexedAnnualSpendingRequirement *= (1 + DRAWDOWN_INFLATION_RATE);
+    indexedPreMedicareHealthCost    *= (1 + HEALTHCARE_INFLATION_RATE);
+    indexedMedicareHealthCost       *= (1 + HEALTHCARE_INFLATION_RATE);
 
     // Home keeps appreciating and (if not already paid off) the mortgage keeps amortizing
     // through retirement — tracked for the home-equity figure only, not drawn on for spending.
@@ -627,6 +647,14 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
   // Capital gains rate is now computed fresh each drawdown year (see loop below), not
   // held as one static rate for the whole horizon.
 
+  // Retirement health insurance — same as the deterministic drawdown: healthCostMonthly
+  // only applies while there's an employer paycheck to deduct it from, so it's replaced
+  // here with a real (if rough) retirement estimate split at Medicare eligibility, grown
+  // on its own higher healthcare-cost trend rather than general inflation.
+  const mcHealthCostFilingKey = state.filingStatus === 'married' ? 'married' : 'single';
+  const initialPreMedicareHealthCost = PRE_MEDICARE_HEALTH_COST_MONTHLY[mcHealthCostFilingKey] * 12;
+  const initialMedicareHealthCost    = MEDICARE_HEALTH_COST_MONTHLY[mcHealthCostFilingKey] * 12;
+
   // SS offset — same real AIME/bend-point estimate as the deterministic drawdown.
   const mcSsAnnualBenefit    = estimateSsAnnualBenefit(state);
   const mcSsStartAge         = Math.max(startAge, SS_FULL_RETIREMENT_AGE);
@@ -703,6 +731,8 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
     }
 
     let spending = initialAnnualSpending;
+    let preMedicareHealthCost = initialPreMedicareHealthCost;
+    let medicareHealthCost    = initialMedicareHealthCost;
     allPaths[0].push(Math.max(0, preTax + roth + brokerage));
 
     // --- PHASE 2 (per-trial): drawdown with RMDs, cost-basis-aware cap gains, 3 buckets ---
@@ -716,8 +746,9 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
       }
 
       const currentAge = startAge + year;
+      const healthCostThisYear = currentAge < MEDICARE_ELIGIBILITY_AGE ? preMedicareHealthCost : medicareHealthCost;
       const ssOffset   = currentAge >= mcSsStartAge ? mcSsAnnualBenefit : 0;
-      const netAnnualWithdrawal = Math.max(0, spending - ssOffset);
+      const netAnnualWithdrawal = Math.max(0, (spending + healthCostThisYear) - ssOffset);
 
       const preTaxShare    = preTax / combinedAssets;
       const rothShare      = roth / combinedAssets;
@@ -799,6 +830,8 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
       if (brokerage > 0) brokerage *= randomFactor;
 
       spending *= (1 + inflationRate);
+      preMedicareHealthCost *= (1 + HEALTHCARE_INFLATION_RATE);
+      medicareHealthCost    *= (1 + HEALTHCARE_INFLATION_RATE);
 
       allPaths[year + 1].push(Math.max(0, preTax + roth + brokerage));
     }

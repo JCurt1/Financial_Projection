@@ -121,6 +121,22 @@ export const DRAWDOWN_GROWTH_RATE = 0.05;
 // This is an assumption, not an empirically-fit figure; revisit if you model an
 // explicit stock/bond glide path instead of a flat blended rate.
 export const DRAWDOWN_VOLATILITY = 0.10;
+
+// --- Retirement health insurance cost ---
+// healthCostMonthly (the working-years payroll-deducted premium) only ever applies while
+// there's an employer paycheck to deduct it from — it was previously never replaced by
+// anything once retirement starts, silently modeling health insurance as free for the
+// entire retirement. These are rough, unsubsidized estimates split at Medicare eligibility:
+// pre-65 (ACA marketplace / COBRA — no employer subsidy anymore, so meaningfully higher
+// than whatever the working-years premium was) and 65+ (Medicare Part B + Part D +
+// supplemental/Medigap). Scaled by filing status as a simple stand-in for household size,
+// same convention already used for the standard deduction and tax brackets.
+export const MEDICARE_ELIGIBILITY_AGE = 65;
+export const PRE_MEDICARE_HEALTH_COST_MONTHLY = { single: 750, married: 1500 };
+export const MEDICARE_HEALTH_COST_MONTHLY     = { single: 450, married: 900 };
+// Healthcare costs have historically outpaced general inflation (long-run trend closer to
+// 5%/yr vs. ~3% CPI) — using a dedicated, higher rate here is the conservative choice.
+export const HEALTHCARE_INFLATION_RATE = 0.05;
 export const DRAWDOWN_INITIAL_WITHDRAWAL_RATE = 0.04;
 export const DRAWDOWN_INFLATION_RATE = 0.03; // 3% — matches Monte Carlo inflation assumption
 export const DRAWDOWN_END_AGE = 90;

@@ -602,7 +602,10 @@
       </div>
 
       <div id="drawdown-container-block" class="drawdown-container">
-        <p class="drawdown-title" id="drawdown-title-text">Retirement Drawdown (5% Portfolio Growth · Actual Spending · 3% Inflation)</p>
+        <p class="drawdown-title" id="drawdown-title-text">Retirement Drawdown — 5% Expected Path with Monte Carlo Range Shown</p>
+        <p class="drawdown-subtitle" style="font-size: 11px; color: var(--text-secondary); margin: 2px 0 8px 0;">
+          Solid line assumes flat 5% growth — real markets don't return the same every year. Shaded band is the actual 10th–90th percentile range from the Monte Carlo simulation.
+        </p>
         <div class="drawdown-wrap">
           <canvas id="drawdownChart"></canvas>
         </div>

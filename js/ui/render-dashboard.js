@@ -22,7 +22,7 @@ export function renderDashboard(result) {
   renderMonteCarloDiagnostics(result); 
 
   updateGrowthChart(result.simulation);
-  updateDrawdownChart(result.simulation.drawdownTimelineData);
+  updateDrawdownChart(result.simulation.drawdownTimelineData, result.monteCarlo);
   updateAssetDonut(result.state);
   
   // 2. TRIGGER THE RE-DRAW AND PASS THE CALCULATED ARRAYS

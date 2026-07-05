@@ -76,10 +76,13 @@ export function renderProjector({ simulation, derivedRetirementTaxRate, derivedC
   // Update Drawdown Timeline block sub-header dynamically
   const drawdownTitle = document.getElementById('drawdown-title-text');
   if (drawdownTitle) {
-    // Keeps the custom standard 30-year span cleanly labeled in the UI header
-    const endAge = Number(simulation.targetHorizonAge) + 30; 
-    drawdownTitle.textContent = 
-      `Age ${simulation.targetHorizonAge}–${endAge} Retirement Drawdown (5% Portfolio Growth · Actual Spending · 3% Inflation)`;
+    // The chart always runs to age 90 (DRAWDOWN_END_AGE), regardless of retirement age —
+    // previously this label used targetHorizonAge+30, which drifted from the actual data
+    // range for any retirement age other than 60.
+    const lastRow = simulation.drawdownTimelineData?.[simulation.drawdownTimelineData.length - 1];
+    const endAge = lastRow ? lastRow.age : Number(simulation.targetHorizonAge) + 30;
+    drawdownTitle.textContent =
+      `Age ${simulation.targetHorizonAge}–${endAge} Retirement Drawdown — 5% Expected Path with Monte Carlo Range Shown`;
   }
 
   // Update derived assumption read-only displays

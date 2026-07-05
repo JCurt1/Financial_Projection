@@ -81,8 +81,7 @@ export function renderProjector({ simulation, derivedRetirementTaxRate, derivedC
     // range for any retirement age other than 60.
     const lastRow = simulation.drawdownTimelineData?.[simulation.drawdownTimelineData.length - 1];
     const endAge = lastRow ? lastRow.age : Number(simulation.targetHorizonAge) + 30;
-    drawdownTitle.textContent =
-      `Age ${simulation.targetHorizonAge}–${endAge} Retirement Drawdown — 5% Expected Path with Monte Carlo Range Shown`;
+    drawdownTitle.textContent = `Age ${simulation.targetHorizonAge}–${endAge} Retirement Drawdown`;
   }
 
   // Update derived assumption read-only displays

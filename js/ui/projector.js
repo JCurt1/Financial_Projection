@@ -67,9 +67,12 @@ export function initProjector() {
 
 export function renderProjector({ simulation, derivedRetirementTaxRate, derivedCapGainsDrag, derivedInvestmentRate }) {
   // Update Compounding Engine text strings dynamically
+  // "Projected Portfolio" now shows a TRUE total — liquid investable assets plus home
+  // equity at retirement — not just the liquid portfolio labeled as if it were everything.
   document.getElementById('fv-target-label').textContent =
-    `Projected Portfolio at Age ${simulation.targetHorizonAge}`;
-  document.getElementById('fv-display').textContent = formatCurrency(simulation.terminalNW);
+    `Projected Total Net Worth at Age ${simulation.targetHorizonAge}`;
+  const totalAtRetirement = simulation.terminalNW + (simulation.homeEquityAtRetirement || 0);
+  document.getElementById('fv-display').textContent = formatCurrency(totalAtRetirement);
   document.getElementById('fv-gain').textContent =
     `+${formatCurrency(simulation.gain)} in capital generation growth`;
 

@@ -334,7 +334,6 @@ if (!absoluteCoastAchievedAge &&
   }
 
   const terminalNetWorthResult = trajectoryCollection[trajectoryCollection.length - 1];
-  const compoundingGrowthGain = terminalNetWorthResult - (state.retirement + state.brokerage + state.cash);
 
   // --- PHASE 2: RETIREMENT DRAWDOWN ---
   // Snapshot home value/mortgage AT retirement before continuing to age them through
@@ -342,6 +341,14 @@ if (!absoluteCoastAchievedAge &&
   const homeValueAtRetirement = simHomeValue;
   const mortgageBalanceAtRetirement = simMortgageBalance;
   const homeEquityAtRetirement = simHomeValue - simMortgageBalance;
+
+  // Total growth (liquid portfolio + home equity), matching the "Projected Total Net
+  // Worth" headline figure — previously this only counted liquid-asset growth, which no
+  // longer reconciles with a headline number that now includes home equity too.
+  const startingHomeEquity = (state.homeValue || 0) - (state.mortgage || 0);
+  const compoundingGrowthGain =
+    (terminalNetWorthResult + homeEquityAtRetirement) -
+    (state.retirement + state.brokerage + state.cash + startingHomeEquity);
 
   let drawdownAge = targetHorizonAge;
   // At retirement, fold cash buffer into brokerage (liquid, non-retirement money — pure

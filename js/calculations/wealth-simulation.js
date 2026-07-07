@@ -297,8 +297,25 @@ export function simulateWealth(state, deps) {
         if (remainingDeficit < 0) {
           const preFlowPreTax = simPreTaxPool;
           simPreTaxPool += remainingDeficit;
-          if (simPreTaxPool < 0) simPreTaxPool = 0;
+          if (simPreTaxPool < 0) {
+            remainingDeficit = simPreTaxPool;
+            simPreTaxPool = 0;
+          } else {
+            remainingDeficit = 0;
+          }
           mcDeltaPreTax += (simPreTaxPool - preFlowPreTax);
+        }
+
+        // All four buckets (cash, brokerage, Roth, pre-tax) are now fully depleted — any
+        // further shortfall has to come from somewhere in real life, typically high-interest
+        // consumer debt. This used to be silently discarded here, which made net worth
+        // FREEZE at a fixed number no matter how much further expenses increased beyond
+        // the point of total depletion (confirmed: identical result for every expense level
+        // from $10k to $50k/month in testing) — not a reasonable floor, a real bug. Routing
+        // it to debt means it now correctly keeps compounding (at debtApr) and net worth
+        // keeps getting worse as the deficit grows, the way reality actually works.
+        if (remainingDeficit < 0) {
+          simDebt += Math.abs(remainingDeficit);
         }
       }
 

@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge, getStateTaxRate, ssTaxableFraction, computeCapitalGainsRate, MEDICARE_ELIGIBILITY_AGE, PRE_MEDICARE_HEALTH_COST_MONTHLY, MEDICARE_HEALTH_COST_MONTHLY, HEALTHCARE_INFLATION_RATE } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge, getStateTaxRate, ssTaxableFraction, computeCapitalGainsRate, MEDICARE_ELIGIBILITY_AGE, PRE_MEDICARE_HEALTH_COST_MONTHLY, MEDICARE_HEALTH_COST_MONTHLY, HEALTHCARE_INFLATION_RATE, computeIrmaaSurcharge } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 import { computeAnnualFica } from './tax.js';
 
@@ -407,6 +407,12 @@ if (!absoluteCoastAchievedAge &&
   const ssAnnualBenefit     = estimateSsAnnualBenefit(state);
   const ssStartAge          = Math.max(targetHorizonAge, SS_FULL_RETIREMENT_AGE);
 
+  // IRMAA uses a real 2-year MAGI lookback — tracking the PRIOR simulated year's MAGI here
+  // is both a reasonable proxy for that lookback and avoids a circular dependency (this
+  // year's withdrawal need would otherwise depend on this year's health cost, which would
+  // depend on this year's withdrawal amount). Starts at 0 for the first drawdown year.
+  let previousYearMagi = 0;
+
   const drawdownTimelineData = [];
 
   while (drawdownAge <= DRAWDOWN_END_AGE) {
@@ -423,7 +429,7 @@ if (!absoluteCoastAchievedAge &&
 
     const healthCostThisYear = drawdownAge < MEDICARE_ELIGIBILITY_AGE
       ? indexedPreMedicareHealthCost
-      : indexedMedicareHealthCost;
+      : indexedMedicareHealthCost + (computeIrmaaSurcharge(previousYearMagi, healthCostFilingKey) * 12);
 
     // Net spending from portfolio = expenses + health insurance minus any Social Security income
     const ssOffset = drawdownAge >= ssStartAge ? ssAnnualBenefit : 0;
@@ -495,6 +501,12 @@ if (!absoluteCoastAchievedAge &&
     let brokeragePull = brokerageTaxDrag < 1
       ? brokerageNetTarget / (1 - brokerageTaxDrag)
       : brokerageNetTarget;
+
+    // MAGI for NEXT year's IRMAA lookup: ordinary income (RMD + taxable SS) plus the
+    // realized capital gain portion of this year's brokerage sale — both count toward
+    // MAGI in reality, not just ordinary income.
+    const realizedCapitalGainThisYear = brokeragePull * brokerageGainFraction;
+    previousYearMagi = totalOrdinaryIncomeThisYear + realizedCapitalGainThisYear;
 
     // Net-of-tax proceeds from the forced RMD excess (beyond what spending needed) get
     // reinvested into the brokerage bucket rather than evaporating from net worth.
@@ -757,6 +769,9 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
     let spending = initialAnnualSpending;
     let preMedicareHealthCost = initialPreMedicareHealthCost;
     let medicareHealthCost    = initialMedicareHealthCost;
+    // Same prior-year MAGI proxy for IRMAA as the deterministic engine — resets per trial
+    // since each trial has its own randomized income/withdrawal trajectory.
+    let previousYearMagi = 0;
     allPaths[0].push(Math.max(0, preTax + roth + brokerage));
 
     // --- PHASE 2 (per-trial): drawdown with RMDs, cost-basis-aware cap gains, 3 buckets ---
@@ -770,7 +785,9 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
       }
 
       const currentAge = startAge + year;
-      const healthCostThisYear = currentAge < MEDICARE_ELIGIBILITY_AGE ? preMedicareHealthCost : medicareHealthCost;
+      const healthCostThisYear = currentAge < MEDICARE_ELIGIBILITY_AGE
+        ? preMedicareHealthCost
+        : medicareHealthCost + (computeIrmaaSurcharge(previousYearMagi, mcHealthCostFilingKey) * 12);
       const ssOffset   = currentAge >= mcSsStartAge ? mcSsAnnualBenefit : 0;
       const netAnnualWithdrawal = Math.max(0, (spending + healthCostThisYear) - ssOffset);
 
@@ -811,6 +828,10 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
       let brokeragePull = brokerageTaxDrag < 1
         ? brokerageNetTarget / (1 - brokerageTaxDrag)
         : brokerageNetTarget;
+
+      // MAGI for NEXT year's IRMAA lookup — same logic as the deterministic engine.
+      const realizedCapitalGainThisYear = brokeragePull * brokerageGainFraction;
+      previousYearMagi = totalOrdinaryIncomeThisYear + realizedCapitalGainThisYear;
 
       const rmdExcessNetOfTax = Math.max(0, rmdForcedExcess - (taxOnPreTax * (rmdForcedExcess / (totalPreTaxGrossWithdrawal || 1))));
 

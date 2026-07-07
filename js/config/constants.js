@@ -137,6 +137,52 @@ export const MEDICARE_HEALTH_COST_MONTHLY     = { single: 450, married: 900 };
 // Healthcare costs have historically outpaced general inflation (long-run trend closer to
 // 5%/yr vs. ~3% CPI) — using a dedicated, higher rate here is the conservative choice.
 export const HEALTHCARE_INFLATION_RATE = 0.05;
+
+// --- IRMAA (Income-Related Monthly Adjustment Amount) ---
+// Medicare Part B + Part D premiums aren't flat — cross certain MAGI thresholds and you
+// pay meaningfully more, in tiers. This matters specifically BECAUSE of the RMD modeling
+// already in this app: a large pre-tax balance forcing big RMDs in your mid-70s is exactly
+// the scenario that can also push MAGI into these surcharge tiers, and until now that cost
+// was invisible — the flat MEDICARE_HEALTH_COST_MONTHLY figure didn't vary with income.
+//
+// Approximate 2025 combined Part B + Part D surcharge, added on top of the base premium
+// already included in MEDICARE_HEALTH_COST_MONTHLY. These thresholds are indexed annually
+// (similar to tax brackets) — reasonably current, not exact-to-the-dollar for future years.
+//
+// Real IRMAA uses a 2-YEAR MAGI lookback (this year's premium is based on income from two
+// years ago), not current-year income. Modeling that precisely would mean tracking a
+// rolling MAGI history; instead this uses the PRIOR simulated year's MAGI as the basis for
+// the current year's surcharge — which is actually a reasonably close proxy for the real
+// lookback mechanic (not just current-year income), and conveniently also avoids a
+// circular dependency (this year's withdrawal need would otherwise depend on this year's
+// health cost, which would depend on this year's withdrawal amount).
+export const IRMAA_BRACKETS = {
+  single: [
+    { maxMagi: 106000,  surcharge: 0 },
+    { maxMagi: 133000,  surcharge: 88 },
+    { maxMagi: 167000,  surcharge: 220 },
+    { maxMagi: 200000,  surcharge: 353 },
+    { maxMagi: 500000,  surcharge: 486 },
+    { maxMagi: Infinity, surcharge: 530 },
+  ],
+  married: [
+    { maxMagi: 212000,  surcharge: 0 },
+    { maxMagi: 266000,  surcharge: 88 },
+    { maxMagi: 334000,  surcharge: 220 },
+    { maxMagi: 400000,  surcharge: 353 },
+    { maxMagi: 750000,  surcharge: 486 },
+    { maxMagi: Infinity, surcharge: 530 },
+  ],
+};
+
+// Returns the monthly IRMAA surcharge (on top of base Medicare premiums) for a given MAGI.
+export function computeIrmaaSurcharge(magi, status) {
+  const brackets = IRMAA_BRACKETS[status] || IRMAA_BRACKETS.single;
+  for (const bracket of brackets) {
+    if (magi <= bracket.maxMagi) return bracket.surcharge;
+  }
+  return brackets[brackets.length - 1].surcharge;
+}
 export const DRAWDOWN_INITIAL_WITHDRAWAL_RATE = 0.04;
 export const DRAWDOWN_INFLATION_RATE = 0.03; // 3% — matches Monte Carlo inflation assumption
 export const DRAWDOWN_END_AGE = 90;

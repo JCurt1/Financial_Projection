@@ -14,8 +14,9 @@ assertClose(result.balanceSheet.netWorth, 18000, 'net worth');
 assertClose(result.balanceSheet.totalAssets, 35000, 'total assets');
 assertClose(result.balanceSheet.totalLiabilities, 17000, 'total liabilities');
 
-// FI target: $3200/mo * 12 * 25 = $960,000
-assertClose(result.fi.fiTargetNumber, 960000, 'FI target');
+// FI target: ($3200/mo * 12 + Medicare-age health cost $450/mo * 12) * 25 = $1,095,000
+// Default targetHorizonAge is 65 (Medicare-eligible), single filer -> MEDICARE_HEALTH_COST_MONTHLY.single
+assertClose(result.fi.fiTargetNumber, 1095000, 'FI target');
 
 // Emergency runway: $4500 cash / $3200/mo = 1.40625 months
 assertClose(result.runway.emergencyMonths, 4500 / 3200, 'emergency months');

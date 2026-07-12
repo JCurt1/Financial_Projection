@@ -183,6 +183,98 @@ export function computeIrmaaSurcharge(magi, status) {
   }
   return brackets[brackets.length - 1].surcharge;
 }
+
+// --- ACA Premium Tax Credit (pre-Medicare subsidy) ---
+// The mirror image of IRMAA: PRE_MEDICARE_HEALTH_COST_MONTHLY was a flat, fully
+// unsubsidized number, but real ACA marketplace premiums are heavily income-based — lower
+// reported income means a bigger subsidy, capping what you actually pay at a percentage of
+// income rather than the sticker price. This matters a lot for early retirees specifically,
+// since deliberately keeping reported taxable income low in the pre-RMD years to qualify
+// for larger subsidies is a common, well-known strategy this app's audience is likely to
+// use — the flat-cost assumption was probably OVERSTATING pre-Medicare costs for exactly
+// the people most likely to plan around this.
+//
+// Current law (IRA-enhanced subsidies, no hard income cliff at 400% FPL, capped at 8.5% of
+// income) — this structure has changed before and its long-term future is uncertain;
+// revisit if the law changes, same caveat as the tax brackets elsewhere in this app.
+//
+// Like IRMAA, this uses the PRIOR simulated year's MAGI as a proxy (real ACA subsidies use
+// a CURRENT-year estimated income with reconciliation at tax time, not a lookback — but
+// using last year's actual MAGI avoids the same circular dependency IRMAA has, and is a
+// reasonable smoothing approximation for a gradually-changing retirement income trajectory).
+export const ACA_FPL = { single: 15060, married: 20440 }; // 2024 guidelines (indexed annually)
+
+// Piecewise-linear applicable-percent-of-income schedule vs. income as a ratio of FPL.
+const ACA_APPLICABLE_PERCENT_POINTS = [
+  { fplRatio: 0,    pct: 0 },
+  { fplRatio: 1.50, pct: 0 },
+  { fplRatio: 2.00, pct: 0.02 },
+  { fplRatio: 2.50, pct: 0.04 },
+  { fplRatio: 3.00, pct: 0.06 },
+  { fplRatio: 4.00, pct: 0.085 },
+];
+
+export function computeAcaApplicablePercent(fplRatio) {
+  if (fplRatio >= 4.00) return 0.085;
+  for (let i = 0; i < ACA_APPLICABLE_PERCENT_POINTS.length - 1; i++) {
+    const a = ACA_APPLICABLE_PERCENT_POINTS[i];
+    const b = ACA_APPLICABLE_PERCENT_POINTS[i + 1];
+    if (fplRatio >= a.fplRatio && fplRatio <= b.fplRatio) {
+      const frac = (fplRatio - a.fplRatio) / (b.fplRatio - a.fplRatio);
+      return a.pct + frac * (b.pct - a.pct);
+    }
+  }
+  return 0.085;
+}
+
+// Caps the annual premium at whichever is LOWER: the actual unsubsidized cost, or the
+// income-based percentage cap — a subsidy never makes you pay MORE than the sticker price.
+export function computeAcaSubsidizedAnnualCost(unsubsidizedAnnualCost, magi, status) {
+  const fpl = ACA_FPL[status] || ACA_FPL.single;
+  const fplRatio = fpl > 0 ? magi / fpl : 4;
+  const applicablePercent = computeAcaApplicablePercent(fplRatio);
+  const incomeBasedCap = Math.max(0, applicablePercent * magi);
+  return Math.min(unsubsidizedAnnualCost, incomeBasedCap);
+}
+
+// --- Long-term care risk ---
+// Roughly 70% of people turning 65 will need some form of long-term care in their
+// lifetime — nursing home care runs $100k+/year, and unlike health insurance (a flat cost
+// nearly everyone pays every year), this is fundamentally a TAIL risk: most years cost $0,
+// but a meaningful minority of retirements face a multi-year, six-figure-per-year event
+// (dementia care especially can run 4+ years). A flat average add-on would flatten away
+// the actual shape of that risk, so this models it two different ways:
+//   - Deterministic engine: a smoothed, age-rising EXPECTED-VALUE annual cost (a single
+//     line can't represent a probabilistic event, so this is the best a flat chart can do).
+//   - Monte Carlo engine: a genuine discrete event per trial — each trial independently
+//     rolls dice every year on whether a care episode starts, and if one does, draws a
+//     random severity and duration. Some trials sail through with $0 lifetime LTC cost;
+//     others get hit hard — which is what actually happens to real people, and is exactly
+//     the kind of tail risk this app's Monte Carlo engine already exists to capture.
+//
+// These are approximate, age-banded incidence rates for planning purposes, not a precise
+// actuarial table — consistent with the level of approximation already used elsewhere in
+// this app (IRMAA brackets, RMD divisors, etc.).
+export const LTC_EXPECTED_VALUE_ANNUAL_PROBABILITY = [
+  { minAge: 65, maxAge: 74,  probability: 0.01 },
+  { minAge: 75, maxAge: 84,  probability: 0.04 },
+  { minAge: 85, maxAge: 200, probability: 0.12 },
+];
+// Lower than the expected-value table above because this is the chance of a NEW episode
+// STARTING in a given year (an episode then lasts multiple years once triggered), not the
+// chance of already being in one — the two tables are calibrated for different purposes.
+export const LTC_ONSET_PROBABILITY = [
+  { minAge: 65, maxAge: 74,  probability: 0.005 },
+  { minAge: 75, maxAge: 84,  probability: 0.02 },
+  { minAge: 85, maxAge: 200, probability: 0.05 },
+];
+export const LTC_BASE_ANNUAL_COST = 100000; // today's dollars — roughly nursing-home-level care
+export const LTC_MEAN_DURATION_YEARS = 3;   // average episode length; real distribution is right-skewed
+
+export function getLtcAnnualProbability(age, table) {
+  const band = table.find(b => age >= b.minAge && age <= b.maxAge);
+  return band ? band.probability : 0;
+}
 export const DRAWDOWN_INITIAL_WITHDRAWAL_RATE = 0.04;
 export const DRAWDOWN_INFLATION_RATE = 0.03; // 3% — matches Monte Carlo inflation assumption
 export const DRAWDOWN_END_AGE = 90;

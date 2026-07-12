@@ -1,4 +1,4 @@
-import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge, getStateTaxRate, ssTaxableFraction, computeCapitalGainsRate, MEDICARE_ELIGIBILITY_AGE, PRE_MEDICARE_HEALTH_COST_MONTHLY, MEDICARE_HEALTH_COST_MONTHLY, HEALTHCARE_INFLATION_RATE, computeIrmaaSurcharge } from '../config/constants.js';
+import { COAST_FI_REFERENCE_AGE, DRAWDOWN_GROWTH_RATE, DRAWDOWN_VOLATILITY, DRAWDOWN_INFLATION_RATE, DRAWDOWN_END_AGE, CASH_BUFFER_YIELD, estimateSsAnnualBenefit, SS_FULL_RETIREMENT_AGE, STANDARD_DEDUCTION, MAX_401K_INDIVIDUAL, MAX_401K_CATCHUP_50, MAX_401K_CATCHUP_60_63, MAX_ANNUAL_ADDITIONS, rmdStartAge, rmdDivisorForAge, getStateTaxRate, ssTaxableFraction, computeCapitalGainsRate, MEDICARE_ELIGIBILITY_AGE, PRE_MEDICARE_HEALTH_COST_MONTHLY, MEDICARE_HEALTH_COST_MONTHLY, HEALTHCARE_INFLATION_RATE, computeIrmaaSurcharge, computeAcaSubsidizedAnnualCost, LTC_EXPECTED_VALUE_ANNUAL_PROBABILITY, LTC_ONSET_PROBABILITY, LTC_BASE_ANNUAL_COST, LTC_MEAN_DURATION_YEARS, getLtcAnnualProbability } from '../config/constants.js';
 import { computeFederalTax } from '../config/tax-brackets-2026.js';
 import { computeAnnualFica } from './tax.js';
 
@@ -383,6 +383,13 @@ if (!absoluteCoastAchievedAge &&
   // Cash buffer is pure principal when it lands here — no embedded gain — so it adds
   // straight to cost basis. HSA no longer flows through here at all (see above).
   let drawdownBrokerageCostBasis = simBrokerageCostBasis + simCashBuffer;
+  // Any consumer debt still outstanding at retirement previously just vanished the moment
+  // drawdown began — never subtracted from net worth, never paid down, never compounding.
+  // It's a real liability and needs to keep existing. Also doubles as the accumulator for
+  // any NEW shortfall once the portfolio itself runs dry (see the depletion branch below) —
+  // both are the same real-world thing: money owed that isn't covered by liquid assets.
+  let drawdownDebt = simDebt;
+  const annualDebtApr = (state.debtApr ?? 12) / 100;
 
   // Inflate expenses forward to retirement age as starting drawdown spending baseline
   const drawdownAccumYears    = targetHorizonAge - state.initialAge;
@@ -400,6 +407,11 @@ if (!absoluteCoastAchievedAge &&
     PRE_MEDICARE_HEALTH_COST_MONTHLY[healthCostFilingKey] * 12 * Math.pow(1 + HEALTHCARE_INFLATION_RATE, Math.max(0, drawdownAccumYears));
   let indexedMedicareHealthCost =
     MEDICARE_HEALTH_COST_MONTHLY[healthCostFilingKey] * 12 * Math.pow(1 + HEALTHCARE_INFLATION_RATE, Math.max(0, drawdownAccumYears));
+  // Long-term care: a smoothed, age-rising EXPECTED-VALUE annual cost (probability of
+  // needing care that year × base annual cost). A single deterministic line can't
+  // represent a probabilistic tail event, so this is the closest a flat chart can get —
+  // the Monte Carlo engine below models the real discrete-event risk instead.
+  let indexedLtcBaseCost = LTC_BASE_ANNUAL_COST * Math.pow(1 + HEALTHCARE_INFLATION_RATE, Math.max(0, drawdownAccumYears));
 
   // Social Security: real AIME/bend-point estimate built from your simulated earnings
   // trajectory (back-cast + forward-cast around today's income), not a single-year proxy.
@@ -418,22 +430,32 @@ if (!absoluteCoastAchievedAge &&
   while (drawdownAge <= DRAWDOWN_END_AGE) {
     const combinedAssets = drawdownPreTaxBucket + drawdownRothBucket + drawdownBrokerageBucket;
 
+    const healthCostThisYear = drawdownAge < MEDICARE_ELIGIBILITY_AGE
+      ? computeAcaSubsidizedAnnualCost(indexedPreMedicareHealthCost, previousYearMagi, healthCostFilingKey)
+      : indexedMedicareHealthCost + (computeIrmaaSurcharge(previousYearMagi, healthCostFilingKey) * 12);
+    const ltcCostThisYear = getLtcAnnualProbability(drawdownAge, LTC_EXPECTED_VALUE_ANNUAL_PROBABILITY) * indexedLtcBaseCost;
+
+    // Net spending from portfolio = expenses + health insurance + expected LTC cost minus
+    // any Social Security income
+    const ssOffset = drawdownAge >= ssStartAge ? ssAnnualBenefit : 0;
+    const netAnnualWithdrawal = Math.max(0, (indexedAnnualSpendingRequirement + healthCostThisYear + ltcCostThisYear) - ssOffset);
+
     if (combinedAssets <= 0) {
-      drawdownTimelineData.push({ age: drawdownAge, totalWealth: 0, preTax: 0, roth: 0, brokerage: 0 });
+      // The portfolio is gone, but living expenses, health costs, etc. don't stop — in
+      // reality this becomes debt. Previously this just showed a flat $0 forever, no
+      // matter how many more years of unmet spending followed or how severe the shortfall
+      // actually was; a trial that ran out one year early and one that ran out 25 years
+      // early with decades of expenses still ahead looked IDENTICAL. Now the shortfall
+      // compounds as real, accruing debt, same mechanism already used during accumulation.
+      drawdownDebt = drawdownDebt * (1 + annualDebtApr) + netAnnualWithdrawal;
+      drawdownTimelineData.push({ age: drawdownAge, totalWealth: -drawdownDebt, preTax: 0, roth: 0, brokerage: 0 });
       drawdownAge++;
       indexedAnnualSpendingRequirement *= (1 + DRAWDOWN_INFLATION_RATE);
       indexedPreMedicareHealthCost     *= (1 + HEALTHCARE_INFLATION_RATE);
       indexedMedicareHealthCost        *= (1 + HEALTHCARE_INFLATION_RATE);
+      indexedLtcBaseCost               *= (1 + HEALTHCARE_INFLATION_RATE);
       continue;
     }
-
-    const healthCostThisYear = drawdownAge < MEDICARE_ELIGIBILITY_AGE
-      ? indexedPreMedicareHealthCost
-      : indexedMedicareHealthCost + (computeIrmaaSurcharge(previousYearMagi, healthCostFilingKey) * 12);
-
-    // Net spending from portfolio = expenses + health insurance minus any Social Security income
-    const ssOffset = drawdownAge >= ssStartAge ? ssAnnualBenefit : 0;
-    const netAnnualWithdrawal = Math.max(0, (indexedAnnualSpendingRequirement + healthCostThisYear) - ssOffset);
 
     // Pro-rata draw from each bucket based on its share of total portfolio
     const preTaxShare    = drawdownPreTaxBucket / combinedAssets;
@@ -546,7 +568,7 @@ if (!absoluteCoastAchievedAge &&
 
     drawdownTimelineData.push({
       age:        drawdownAge,
-      totalWealth: drawdownPreTaxBucket + drawdownRothBucket + drawdownBrokerageBucket,
+      totalWealth: drawdownPreTaxBucket + drawdownRothBucket + drawdownBrokerageBucket - drawdownDebt,
       preTax:     drawdownPreTaxBucket,
       roth:       drawdownRothBucket,
       brokerage:  drawdownBrokerageBucket,
@@ -557,9 +579,14 @@ if (!absoluteCoastAchievedAge &&
     // Brokerage now compounds at the FULL growth rate — tax is only owed on realized gains
     // at withdrawal (handled above via cost basis), not annually on unrealized appreciation.
     drawdownBrokerageBucket *= (1 + DRAWDOWN_GROWTH_RATE);
+    // Any debt carried into retirement (rare — see initialization above) keeps accruing
+    // interest here too, since this model has no active retirement-phase debt paydown
+    // mechanism. In the typical case this is 0 and does nothing.
+    if (drawdownDebt > 0) drawdownDebt *= (1 + annualDebtApr);
     indexedAnnualSpendingRequirement *= (1 + DRAWDOWN_INFLATION_RATE);
     indexedPreMedicareHealthCost    *= (1 + HEALTHCARE_INFLATION_RATE);
     indexedMedicareHealthCost       *= (1 + HEALTHCARE_INFLATION_RATE);
+    indexedLtcBaseCost              *= (1 + HEALTHCARE_INFLATION_RATE);
 
     // Home keeps appreciating and (if not already paid off) the mortgage keeps amortizing
     // through retirement — tracked for the home-equity figure only, not drawn on for spending.
@@ -700,6 +727,7 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
   // State tax rate for retirement withdrawals — was referenced below but never declared,
   // which is what just broke the whole calculation. Fixed now.
   const mcStateRate = getStateTaxRate(state);
+  const annualDebtApr = (state.debtApr ?? 12) / 100;
 
   // RMDs — same rule as the deterministic drawdown.
   const birthYear = new Date().getFullYear() - state.initialAge;
@@ -769,27 +797,69 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
     let spending = initialAnnualSpending;
     let preMedicareHealthCost = initialPreMedicareHealthCost;
     let medicareHealthCost    = initialMedicareHealthCost;
+    let ltcBaseCost           = LTC_BASE_ANNUAL_COST;
+    // Long-term care: a genuine discrete event per trial, not a smoothed average. Each
+    // trial independently rolls the dice every year on whether a care episode starts;
+    // most trials will see this stay false/0 for the whole retirement, some will get hit
+    // with a real multi-year cost — that spread IS the point, not a bug to smooth away.
+    let ltcEverTriggered  = false;
+    let ltcYearsRemaining = 0;
+    let ltcAnnualCostThisEpisode = 0;
     // Same prior-year MAGI proxy for IRMAA as the deterministic engine — resets per trial
     // since each trial has its own randomized income/withdrawal trajectory.
     let previousYearMagi = 0;
-    allPaths[0].push(Math.max(0, preTax + roth + brokerage));
+    // Any leftover consumer debt at retirement (rare) carries forward, same as the
+    // deterministic engine, and also accumulates any NEW shortfall once the portfolio
+    // itself runs dry — see the depletion branch below.
+    let debt = mcAccumulationSchedule?.debtAtRetirement || 0;
+    allPaths[0].push(Math.max(0, preTax + roth + brokerage - debt));
 
     // --- PHASE 2 (per-trial): drawdown with RMDs, cost-basis-aware cap gains, 3 buckets ---
     for (let year = 0; year < totalYears; year++) {
       const combinedAssets = preTax + roth + brokerage;
 
-      if (combinedAssets <= 0) {
-        preTax = 0; roth = 0; brokerage = 0; brokerageCostBasis = 0;
-        allPaths[year + 1].push(0);
-        continue;
-      }
-
       const currentAge = startAge + year;
       const healthCostThisYear = currentAge < MEDICARE_ELIGIBILITY_AGE
-        ? preMedicareHealthCost
+        ? computeAcaSubsidizedAnnualCost(preMedicareHealthCost, previousYearMagi, mcHealthCostFilingKey)
         : medicareHealthCost + (computeIrmaaSurcharge(previousYearMagi, mcHealthCostFilingKey) * 12);
-      const ssOffset   = currentAge >= mcSsStartAge ? mcSsAnnualBenefit : 0;
-      const netAnnualWithdrawal = Math.max(0, (spending + healthCostThisYear) - ssOffset);
+
+      // Long-term care: check for a new episode, or continue an active one.
+      let ltcCostThisYear = 0;
+      if (ltcYearsRemaining > 0) {
+        ltcCostThisYear = ltcAnnualCostThisEpisode;
+        ltcYearsRemaining -= 1;
+      } else if (!ltcEverTriggered) {
+        const onsetProbability = getLtcAnnualProbability(currentAge, LTC_ONSET_PROBABILITY);
+        if (Math.random() < onsetProbability) {
+          ltcEverTriggered = true;
+          // Duration is right-skewed around a mean of ~3 years — most episodes are
+          // shorter, a meaningful minority run much longer (e.g. dementia care).
+          const durationYears = Math.max(1, Math.round(LTC_MEAN_DURATION_YEARS * Math.exp(generateGaussianRandom(0, 0.5))));
+          // Cost severity also varies — home health aide vs. assisted living vs.
+          // full nursing home care are very different price points.
+          const costMultiplier = Math.max(0.4, 1 + generateGaussianRandom(0, 0.3));
+          ltcAnnualCostThisEpisode = ltcBaseCost * costMultiplier;
+          ltcCostThisYear = ltcAnnualCostThisEpisode;
+          ltcYearsRemaining = durationYears - 1; // this year counts as year 1 of the episode
+        }
+      }
+
+      const ssOffset = currentAge >= mcSsStartAge ? mcSsAnnualBenefit : 0;
+      const netAnnualWithdrawal = Math.max(0, (spending + healthCostThisYear + ltcCostThisYear) - ssOffset);
+
+      if (combinedAssets <= 0) {
+        // The portfolio is gone, but spending doesn't stop — same fix as the deterministic
+        // engine: this becomes real, compounding debt instead of a flat $0 forever, which
+        // previously hid how severe a given trial's failure actually was.
+        preTax = 0; roth = 0; brokerage = 0; brokerageCostBasis = 0;
+        debt = debt * (1 + annualDebtApr) + netAnnualWithdrawal;
+        allPaths[year + 1].push(-debt);
+        spending *= (1 + inflationRate);
+        preMedicareHealthCost *= (1 + HEALTHCARE_INFLATION_RATE);
+        medicareHealthCost    *= (1 + HEALTHCARE_INFLATION_RATE);
+        ltcBaseCost           *= (1 + HEALTHCARE_INFLATION_RATE);
+        continue;
+      }
 
       const preTaxShare    = preTax / combinedAssets;
       const rothShare      = roth / combinedAssets;
@@ -877,8 +947,12 @@ export function runMonteCarloSimulation(state, terminalAccumulatedNW, preTaxRati
       spending *= (1 + inflationRate);
       preMedicareHealthCost *= (1 + HEALTHCARE_INFLATION_RATE);
       medicareHealthCost    *= (1 + HEALTHCARE_INFLATION_RATE);
+      ltcBaseCost           *= (1 + HEALTHCARE_INFLATION_RATE);
+      // Any debt carried into retirement (rare) keeps accruing interest here too, same as
+      // the deterministic engine — in the typical case this is 0 and does nothing.
+      if (debt > 0) debt *= (1 + annualDebtApr);
 
-      allPaths[year + 1].push(Math.max(0, preTax + roth + brokerage));
+      allPaths[year + 1].push(Math.max(0, preTax + roth + brokerage) - debt);
     }
   }
 
